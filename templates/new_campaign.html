@@ -43,6 +43,13 @@
         <div class="readonly-value">{{ t('recipients_text', count=active_contacts_count) }}</div>
       </div>
 
+      {% if vonage_ready and active_contacts_count > 0 %}
+      <div class="form-group">
+        <label class="field-label">{{ t('estimated_time_label') }}</label>
+        <div class="readonly-value">{{ t('estimated_time_text', time=estimated_duration, rate=send_rate) }}</div>
+      </div>
+      {% endif %}
+
       <div class="button-row">
         <a href="{{ url_for('campaigns_page') }}" class="button-link">{{ t('cancel') }}</a>
         <button type="submit" class="primary" id="sendBtn" onclick="return confirmSend();">

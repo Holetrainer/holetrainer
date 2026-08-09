@@ -26,14 +26,35 @@
   <div class="shell">
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="sidebar">
-      <div class="brand">{{ t('brand') }}</div>
+      <div class="sidebar-brand-header">
+        <span class="brand-icon">H</span>
+        <span class="brand">{{ t('brand') }}</span>
+      </div>
       <nav>
-        <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">{{ t('nav_dashboard') }}</a>
-        <a href="{{ url_for('contacts') }}" class="nav-item {% if active == 'contacts' %}active{% endif %}">{{ t('nav_contacts') }}</a>
-        <a href="{{ url_for('templates_page') }}" class="nav-item {% if active == 'templates' %}active{% endif %}">{{ t('nav_templates') }}</a>
-        <a href="{{ url_for('campaigns_page') }}" class="nav-item {% if active == 'campaigns' %}active{% endif %}">{{ t('nav_campaigns') }}</a>
-        <a href="{{ url_for('optouts_page') }}" class="nav-item {% if active == 'optouts' %}active{% endif %}">{{ t('nav_optouts') }}</a>
-        <a href="{{ url_for('settings_page') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">{{ t('nav_settings') }}</a>
+        <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="2.5" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="11.5" y="2.5" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="2.5" y="11.5" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.5"/><rect x="11.5" y="11.5" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.5"/></svg>
+          {{ t('nav_dashboard') }}
+        </a>
+        <a href="{{ url_for('contacts') }}" class="nav-item {% if active == 'contacts' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6.5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 17c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          {{ t('nav_contacts') }}
+        </a>
+        <a href="{{ url_for('templates_page') }}" class="nav-item {% if active == 'templates' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4" width="15" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 5.5l6.5 5 6.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {{ t('nav_templates') }}
+        </a>
+        <a href="{{ url_for('campaigns_page') }}" class="nav-item {% if active == 'campaigns' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M2.5 8.5v3l3 .8v4.7a1 1 0 001 1h.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 9.3l10-4.3v10l-10-3.5v-2.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          {{ t('nav_campaigns') }}
+        </a>
+        <a href="{{ url_for('optouts_page') }}" class="nav-item {% if active == 'optouts' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 5.5l9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          {{ t('nav_optouts') }}
+        </a>
+        <a href="{{ url_for('settings_page') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4M15.1 15.1l-1.4-1.4M6.3 6.3L4.9 4.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          {{ t('nav_settings') }}
+        </a>
       </nav>
 
       <div class="sidebar-controls">
@@ -66,11 +87,13 @@
     function closeMenu() {
       sidebar.classList.remove('open');
       overlay.classList.remove('visible');
+      menuToggle.classList.remove('open');
       menuToggle.setAttribute('aria-expanded', 'false');
     }
     function openMenu() {
       sidebar.classList.add('open');
       overlay.classList.add('visible');
+      menuToggle.classList.add('open');
       menuToggle.setAttribute('aria-expanded', 'true');
     }
     menuToggle.addEventListener('click', () => {

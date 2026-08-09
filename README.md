@@ -19,7 +19,22 @@
 
 On Render's free tier, the filesystem resets whenever the service restarts or redeploys (including automatic sleep after inactivity). That means contacts, templates, and campaigns saved as local files will be **wiped** on restart.
 
-This is fine for exploring and demoing the app. Before importing your real 15,600 contacts, we should add a persistent disk (a small paid add-on on Render) or migrate storage to a real database.
+This is fine for exploring and demoing the app. Before importing real contacts, add a persistent disk (see below).
+
+## Adding persistent storage (do this before importing real contacts)
+
+Render's persistent disks require a **paid instance type** (Starter or above, ~$7/month). This is also worth doing anyway because paid instances don't spin down from inactivity — important since campaign sends now run in the background and a spun-down free instance would interrupt a long send.
+
+1. In the Render dashboard, open your `holetrainer` service.
+2. Go to **Settings** → find **Instance Type** → upgrade from "Free" to "Starter" (or any paid tier).
+3. Go to the **Disks** tab (only visible on paid instances) → **Add Disk**.
+   - **Name:** `holetrainer-data`
+   - **Mount Path:** `/var/data`
+   - **Size:** 1 GB is plenty for contacts/templates/campaigns as CSV files.
+4. Go to **Environment** → add these two variables:
+   - `DATA_DIR` → `/var/data/data`
+   - `LOGS_DIR` → `/var/data/logs`
+5. Save. Render will redeploy automatically — the app will create the folders on the disk the first time it starts, and everything saved from then on survives restarts and redeploys.
 
 ## Running locally instead
 

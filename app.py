@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 import config
 import os
 import csv
 import re
 import json
+import threading
+import time
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from translations import get_translator
@@ -780,6 +782,8 @@ def delete_template(template_id):
 CAMPAIGN_FIELDS = ["id", "template_id", "template_name", "total_recipients", "sent", "failed", "status", "mode", "created_at"]
 LOG_FIELDS = ["timestamp", "campaign_id", "phone", "status", "detail"]
 
+campaigns_lock = threading.Lock()
+
 
 def load_campaigns():
     if not os.path.exists(config.CAMPAIGNS_FILE):
@@ -796,6 +800,39 @@ def save_campaigns(campaigns):
         writer.writeheader()
         writer.writerows(campaigns)
     os.replace(tmp_file, config.CAMPAIGNS_FILE)
+
+
+def update_campaign_record(campaign_id, **fields):
+    """Thread-safe partial update of a single campaign's saved record."""
+    with campaigns_lock:
+        campaigns = load_campaigns()
+        for c in campaigns:
+            if c["id"] == campaign_id:
+                c.update({k: str(v) for k, v in fields.items()})
+                break
+        save_campaigns(campaigns)
+
+
+def get_in_progress_campaign():
+    for c in load_campaigns():
+        if c.get("status") == "in_progress":
+            return c
+    return None
+
+
+def mark_stale_campaigns_interrupted():
+    """Run once at startup. Any campaign still marked 'in_progress' means the
+    previous process died (restart, redeploy, crash) before finishing — there
+    is no background thread actually running for it anymore, so it's honest
+    to mark it interrupted rather than leave it looking like it's still going."""
+    campaigns = load_campaigns()
+    changed = False
+    for c in campaigns:
+        if c.get("status") == "in_progress":
+            c["status"] = "interrupted"
+            changed = True
+    if changed:
+        save_campaigns(campaigns)
 
 
 def next_campaign_id(campaigns):
@@ -839,6 +876,74 @@ def personalize(body, contact):
     return body.replace("{name}", contact.get("name") or "there")
 
 
+def estimate_send_duration(count):
+    """Return a human-readable estimate of how long a send will take at the
+    configured rate limit."""
+    seconds = count / max(config.SEND_RATE_PER_SECOND, 0.01)
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    minutes = seconds / 60
+    if minutes < 60:
+        return f"~{int(minutes)} min"
+    hours = minutes / 60
+    return f"~{hours:.1f} hr"
+
+
+def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds):
+    """Runs in a background thread. Never touches Flask's request/session —
+    everything it needs is passed in as plain values up front."""
+    client = None
+    from_number = None
+    if mode == "live":
+        try:
+            import vonage
+            auth = vonage.Auth(api_key=vonage_creds["vonage_api_key"], api_secret=vonage_creds["vonage_api_secret"])
+            client = vonage.Vonage(auth)
+            from_number = vonage_creds["vonage_from_number"]
+        except Exception as e:
+            update_campaign_record(campaign_id, status="completed", sent=0, failed=len(recipients))
+            append_send_log([{
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "campaign_id": campaign_id, "phone": "-", "status": "failed",
+                "detail": f"Could not start Vonage client: {e}",
+            }])
+            return
+
+    sent_count = 0
+    failed_count = 0
+
+    for i, contact in enumerate(recipients, start=1):
+        message = personalize(template_body, contact)
+
+        if mode == "live":
+            success, detail = send_sms_real(client, from_number, contact["phone"], message)
+        else:
+            success, detail = True, "simulated (Vonage not configured)"
+
+        if success:
+            sent_count += 1
+        else:
+            failed_count += 1
+
+        append_send_log([{
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "campaign_id": campaign_id,
+            "phone": contact["phone"],
+            "status": "sent" if success else "failed",
+            "detail": detail,
+        }])
+
+        if i % config.PROGRESS_SAVE_EVERY == 0 or i == len(recipients):
+            update_campaign_record(campaign_id, sent=sent_count, failed=failed_count)
+
+        if i < len(recipients):
+            # Real sends respect Vonage's rate limit. Simulation mode uses a
+            # tiny delay just so progress is visible without waiting for real.
+            time.sleep(1.0 / config.SEND_RATE_PER_SECOND if mode == "live" else 0.02)
+
+    update_campaign_record(campaign_id, sent=sent_count, failed=failed_count, status="completed")
+
+
 @app.route("/campaigns")
 def campaigns_page():
     all_campaigns = load_campaigns()
@@ -857,6 +962,11 @@ def new_campaign():
     all_contacts = load_contacts()
     active_contacts = [c for c in all_contacts if c.get("opted_out") != "True"]
 
+    in_progress = get_in_progress_campaign()
+    if in_progress:
+        flash("A campaign is already sending. Please wait for it to finish before starting another.", "warn")
+        return redirect(url_for("campaign_detail", campaign_id=in_progress["id"]))
+
     if request.method == "POST":
         template_id = request.form.get("template_id", "")
         target = next((t for t in all_templates if t["id"] == template_id), None)
@@ -871,65 +981,42 @@ def new_campaign():
 
         vonage_ready = vonage_is_configured()
         mode = "live" if vonage_ready else "simulation"
-
-        client = None
-        from_number = None
-        if vonage_ready:
-            settings = load_settings()
-            import vonage
-            auth = vonage.Auth(api_key=settings["vonage_api_key"], api_secret=settings["vonage_api_secret"])
-            client = vonage.Vonage(auth)
-            from_number = settings["vonage_from_number"]
+        vonage_creds = load_settings() if vonage_ready else {}
 
         campaigns = load_campaigns()
         campaign_id = next_campaign_id(campaigns)
-
-        sent_count = 0
-        failed_count = 0
-        log_rows = []
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        for contact in active_contacts:
-            message = personalize(target["body"], contact)
-            if mode == "live":
-                success, detail = send_sms_real(client, from_number, contact["phone"], message)
-            else:
-                success, detail = True, "simulated (Vonage not configured)"
-
-            if success:
-                sent_count += 1
-            else:
-                failed_count += 1
-
-            log_rows.append({
-                "timestamp": timestamp,
-                "campaign_id": campaign_id,
-                "phone": contact["phone"],
-                "status": "sent" if success else "failed",
-                "detail": detail,
-            })
-
-        append_send_log(log_rows)
 
         new_campaign_record = {
             "id": campaign_id,
             "template_id": template_id,
             "template_name": target["name"],
             "total_recipients": str(len(active_contacts)),
-            "sent": str(sent_count),
-            "failed": str(failed_count),
-            "status": "completed",
+            "sent": "0",
+            "failed": "0",
+            "status": "in_progress",
             "mode": mode,
             "created_at": timestamp,
         }
         campaigns.append(new_campaign_record)
         save_campaigns(campaigns)
 
-        if mode == "simulation":
-            flash(f"Simulation complete: {sent_count} would be sent to {len(active_contacts)} contacts. Configure Vonage to send for real.", "success")
-        else:
-            flash(f"Campaign sent: {sent_count} delivered, {failed_count} failed.", "success")
+        # Snapshot everything the background thread needs as plain values —
+        # it must never touch Flask's request/session objects.
+        recipients_snapshot = [dict(c) for c in active_contacts]
+        thread = threading.Thread(
+            target=run_campaign_send,
+            args=(campaign_id, target["body"], recipients_snapshot, mode, vonage_creds),
+            daemon=True,
+        )
+        thread.start()
 
+        flash(
+            f"Campaign started for {len(active_contacts)} contacts. "
+            f"Estimated time: {estimate_send_duration(len(active_contacts))}. "
+            f"You can safely leave this page — progress is saved.",
+            "success",
+        )
         return redirect(url_for("campaign_detail", campaign_id=campaign_id))
 
     return render_template(
@@ -938,6 +1025,8 @@ def new_campaign():
         templates=all_templates,
         active_contacts_count=len(active_contacts),
         vonage_ready=vonage_is_configured(),
+        estimated_duration=estimate_send_duration(len(active_contacts)) if active_contacts else "",
+        send_rate=config.SEND_RATE_PER_SECOND,
     )
 
 
@@ -959,9 +1048,29 @@ def campaign_detail(campaign_id):
         "campaign_detail.html",
         active="campaigns",
         campaign=target,
-        log_entries=log_entries[:100],
+        log_entries=list(reversed(log_entries))[:100],
         log_total=len(log_entries),
     )
+
+
+@app.route("/campaigns/<campaign_id>/status")
+def campaign_status(campaign_id):
+    campaigns = load_campaigns()
+    target = next((c for c in campaigns if c["id"] == campaign_id), None)
+    if not target:
+        return jsonify({"error": "not_found"}), 404
+    return jsonify({
+        "status": target["status"],
+        "sent": int(target["sent"]),
+        "failed": int(target["failed"]),
+        "total_recipients": int(target["total_recipients"]),
+    })
+
+
+# Runs once when the app process starts (including after every restart or
+# redeploy). Any campaign left "in_progress" from a previous process is
+# honestly marked as interrupted rather than shown as still running forever.
+mark_stale_campaigns_interrupted()
 
 
 def mask_secret(value):

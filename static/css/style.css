@@ -40,7 +40,7 @@ body{
   padding:12px 16px;
   position:sticky;
   top:0;
-  z-index:20;
+  z-index:31;
 }
 .topbar-brand{font-size:14px; font-weight:700; color:var(--accent); letter-spacing:0.03em;}
 .menu-toggle{
@@ -50,23 +50,36 @@ body{
   cursor:pointer;
   display:flex;
   flex-direction:column;
-  gap:4px;
+  justify-content:center;
+  gap:5px;
   width:28px;
+  height:28px;
 }
 .menu-toggle span{
   display:block;
   height:2px;
   background:var(--text);
   border-radius:2px;
+  transition:transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
+  transform-origin:center;
 }
+.menu-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.menu-toggle.open span:nth-child(2){opacity:0;}
+.menu-toggle.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
 .sidebar-overlay{
-  display:none;
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,0.5);
+  background:rgba(0,0,0,0.55);
   z-index:29;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity 0.28s ease, visibility 0s linear 0.28s;
 }
-.sidebar-overlay.visible{display:block;}
+.sidebar-overlay.visible{
+  opacity:1;
+  visibility:visible;
+  transition:opacity 0.28s ease, visibility 0s linear 0s;
+}
 .shell{display:flex; min-height:100vh;}
 .sidebar{
   width:170px;
@@ -123,33 +136,62 @@ body{
   width:100%;
 }
 .theme-toggle:hover{color:var(--text);}
+.sidebar-brand-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 18px 18px;
+}
+.brand-icon{
+  width:26px;
+  height:26px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--accent-dim);
+  color:#0d1117;
+  font-weight:800;
+  font-size:13px;
+  border-radius:6px;
+}
 .brand{
   font-size:14px;
   font-weight:700;
   color:var(--accent);
-  padding:0 18px 18px;
   letter-spacing:0.03em;
 }
 .nav-item{
-  display:block;
+  display:flex;
+  align-items:center;
+  gap:10px;
   padding:11px 18px;
   font-size:13px;
   color:var(--text-dim);
   text-decoration:none;
   border-left:2px solid transparent;
 }
+.nav-icon{
+  width:17px;
+  height:17px;
+  flex-shrink:0;
+  color:currentColor;
+  opacity:0.85;
+}
 .nav-item.active{
   color:var(--text);
   background:var(--bg-panel);
   border-left:2px solid var(--accent);
 }
+.nav-item.active .nav-icon{opacity:1;}
 .nav-item:hover{color:var(--text);}
-.main{flex:1; padding:26px 32px; max-width:900px;}
+.main{flex:1; min-width:0; padding:26px 32px; max-width:900px;}
 h1{font-size:20px; margin:0 0 2px; font-weight:600;}
 .subtitle{color:var(--text-dim); font-size:13px; margin-bottom:22px;}
 .stats-row{display:flex; gap:14px; margin-bottom:20px;}
 .stat{
   flex:1;
+  min-width:0;
   background:var(--bg-panel);
   border:1px solid var(--border2);
   border-radius:6px;
@@ -163,6 +205,7 @@ h1{font-size:20px; margin:0 0 2px; font-weight:600;}
 .stat .lbl{font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-top:4px;}
 .grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 .panel{
+  min-width:0;
   background:var(--bg-panel);
   border:1px solid var(--border2);
   border-radius:6px;
@@ -439,17 +482,35 @@ button.primary{
     top:0;
     left:0;
     bottom:0;
-    width:240px;
+    width:260px;
     max-width:80vw;
     transform:translateX(-100%);
-    transition:transform 0.2s ease;
+    transition:transform 0.32s cubic-bezier(0.32,0.72,0,1);
     z-index:30;
     overflow-y:auto;
     min-height:100vh;
+    box-shadow:none;
   }
-  .sidebar.open{transform:translateX(0);}
-  .sidebar .brand{display:none;}
+  .sidebar.open{
+    transform:translateX(0);
+    box-shadow:8px 0 24px rgba(0,0,0,0.35);
+  }
+  .sidebar-brand-header{
+    padding:4px 18px 18px;
+    border-bottom:1px solid var(--border2);
+    margin-bottom:8px;
+  }
   .sidebar-controls{margin-top:auto;}
+
+  .sidebar.open .nav-item{
+    animation:navItemIn 0.32s cubic-bezier(0.32,0.72,0,1) both;
+  }
+  .sidebar.open .nav-item:nth-child(1){animation-delay:0.03s;}
+  .sidebar.open .nav-item:nth-child(2){animation-delay:0.06s;}
+  .sidebar.open .nav-item:nth-child(3){animation-delay:0.09s;}
+  .sidebar.open .nav-item:nth-child(4){animation-delay:0.12s;}
+  .sidebar.open .nav-item:nth-child(5){animation-delay:0.15s;}
+  .sidebar.open .nav-item:nth-child(6){animation-delay:0.18s;}
 
   .main{
     padding:16px;
@@ -544,3 +605,23 @@ button.primary{
   font-size:11px;
 }
 .logout-link:hover{color:var(--danger);}
+
+/* ============ CAMPAIGN PROGRESS ============ */
+.progress-bar-track{
+  width:100%;
+  height:10px;
+  background:var(--bg-field);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  overflow:hidden;
+}
+.progress-bar-fill{
+  height:100%;
+  background:var(--accent-dim);
+  transition:width 0.4s ease;
+}
+
+@keyframes navItemIn{
+  from{opacity:0; transform:translateX(-8px);}
+  to{opacity:1; transform:translateX(0);}
+}

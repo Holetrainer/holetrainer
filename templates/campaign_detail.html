@@ -2,7 +2,15 @@
 {% block title_suffix %} — {{ campaign.template_name }}{% endblock %}
 {% block content %}
   <h1>{{ campaign.template_name }}</h1>
-  <p class="subtitle">{{ t('campaign_detail_subtitle', id=campaign.id, date=campaign.created_at) }} · <span class="badge {{ 'pend' if campaign.mode == 'simulation' else 'ok' }}">{{ campaign.mode }}</span></p>
+  <p class="subtitle">
+    {{ t('campaign_detail_subtitle', id=campaign.id, date=campaign.created_at) }}
+    · <span class="badge {{ 'pend' if campaign.mode == 'simulation' else 'ok' }}">{{ campaign.mode }}</span>
+    · <span class="badge {{ 'pend' if campaign.status == 'in_progress' else ('fail' if campaign.status == 'interrupted' else 'ok') }}" id="statusBadge">
+        {% if campaign.status == 'in_progress' %}{{ t('status_sending') }}
+        {% elif campaign.status == 'interrupted' %}{{ t('status_interrupted') }}
+        {% else %}{{ t('status_completed') }}{% endif %}
+      </span>
+  </p>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -12,17 +20,32 @@
     {% endif %}
   {% endwith %}
 
+  {% if campaign.status == 'in_progress' %}
+  <div class="flash pend">{{ t('sending_in_progress_note') }}</div>
+  {% elif campaign.status == 'interrupted' %}
+  <div class="flash error">{{ t('interrupted_note') }}</div>
+  {% endif %}
+
+  {% if campaign.status == 'in_progress' %}
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill" style="width:{{ (campaign.sent|int + campaign.failed|int) / (campaign.total_recipients|int) * 100 if campaign.total_recipients|int > 0 else 0 }}%;"></div>
+    </div>
+    <p class="hint" id="progressLabel" style="margin-top:8px;">{{ campaign.sent|int + campaign.failed|int }} / {{ campaign.total_recipients }}</p>
+  </div>
+  {% endif %}
+
   <div class="stats-row">
     <div class="stat">
-      <div class="num">{{ campaign.total_recipients }}</div>
+      <div class="num" id="statTotal">{{ campaign.total_recipients }}</div>
       <div class="lbl">{{ t('th_recipients') }}</div>
     </div>
     <div class="stat ok">
-      <div class="num">{{ campaign.sent }}</div>
+      <div class="num" id="statSent">{{ campaign.sent }}</div>
       <div class="lbl">{{ t('th_sent') }}</div>
     </div>
     <div class="stat fail">
-      <div class="num">{{ campaign.failed }}</div>
+      <div class="num" id="statFailed">{{ campaign.failed }}</div>
       <div class="lbl">{{ t('th_failed') }}</div>
     </div>
   </div>
@@ -47,4 +70,37 @@
   <div class="button-row">
     <a href="{{ url_for('campaigns_page') }}" class="button-link">{{ t('back_to_campaigns') }}</a>
   </div>
+
+  {% if campaign.status == 'in_progress' %}
+  <script>
+    const campaignId = {{ campaign.id|tojson }};
+    const statusUrl = "{{ url_for('campaign_status', campaign_id=campaign.id) }}";
+
+    function poll() {
+      fetch(statusUrl)
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) return;
+          document.getElementById('statSent').textContent = data.sent;
+          document.getElementById('statFailed').textContent = data.failed;
+          document.getElementById('statTotal').textContent = data.total_recipients;
+
+          const done = data.sent + data.failed;
+          const pct = data.total_recipients > 0 ? (done / data.total_recipients * 100) : 0;
+          const fill = document.getElementById('progressFill');
+          if (fill) fill.style.width = pct + '%';
+          const label = document.getElementById('progressLabel');
+          if (label) label.textContent = done + ' / ' + data.total_recipients;
+
+          if (data.status !== 'in_progress') {
+            window.location.reload();
+          } else {
+            setTimeout(poll, 2000);
+          }
+        })
+        .catch(() => setTimeout(poll, 3000));
+    }
+    setTimeout(poll, 2000);
+  </script>
+  {% endif %}
 {% endblock %}
