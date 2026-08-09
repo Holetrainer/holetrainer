@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('templates_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('templates_title') }}</h1>
+  <p class="subtitle">{{ t('templates_subtitle', count=templates|length) }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="button-row" style="justify-content:flex-start; margin-bottom:14px;">
+    <a href="{{ url_for('new_template') }}" class="button-link primary-link">{{ t('new_template_btn') }}</a>
+  </div>
+
+  <div class="tpl-grid">
+    {% for t_item in templates %}
+    <div class="panel tpl-card">
+      <div class="tpl-card-header">
+        <span class="tpl-card-name">{{ t_item.name }}</span>
+        <span class="char-tag {% if t_item.char_count > max_chars %}over{% endif %}">{{ t_item.char_count }}/{{ max_chars }}</span>
+      </div>
+      <p class="tpl-card-body">{{ t_item.body }}</p>
+      <div class="tpl-card-actions">
+        <a href="{{ url_for('edit_template', template_id=t_item.id) }}" class="action-link">{{ t('edit') }}</a>
+        <form action="{{ url_for('delete_template', template_id=t_item.id) }}" method="post" class="inline-form" data-confirm="{{ t('delete_template_confirm') }}">
+          <button type="submit" class="action-link danger">{{ t('delete') }}</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+    {% if not templates %}
+    <div class="panel">
+      <p class="empty-row">{{ t('no_templates') }}</p>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}

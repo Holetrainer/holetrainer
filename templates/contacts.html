@@ -1,0 +1,158 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('contacts_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('contacts_title') }}</h1>
+  <p class="subtitle">{{ t('contacts_subtitle', count=contacts_count) }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('import_contacts') }}</div>
+    <form action="{{ url_for('upload_contacts') }}" method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <label class="field-label">{{ t('file_label') }}</label>
+        <input type="file" name="contacts_file" accept=".csv,.vcf" required>
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('consent_source_label') }}</label>
+        <input type="text" name="consent_source" placeholder="{{ t('consent_source_placeholder') }}" class="text-input" required>
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('consent_date_label') }}</label>
+        <input type="date" name="consent_date" class="text-input">
+      </div>
+      <button type="submit" class="primary">{{ t('upload_btn') }}</button>
+      <p class="hint">{{ t('upload_hint') }}</p>
+    </form>
+  </div>
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('smart_search_label') }}</div>
+    {% if ai_ready %}
+    <div class="form-group">
+      <textarea id="smartSearchInput" class="textarea-input" style="min-height:44px;" placeholder="{{ t('smart_search_placeholder') }}"></textarea>
+    </div>
+    <div class="button-row" style="justify-content:flex-start;">
+      <button type="button" id="smartSearchBtn">{{ t('smart_search_btn') }}</button>
+    </div>
+    <p class="hint" id="smartSearchError" style="display:none; color:var(--danger);"></p>
+    <p class="hint" style="margin-top:8px;">{{ t('smart_search_hint') }}</p>
+    {% else %}
+    <p class="hint" style="margin:0;">
+      {{ t('smart_search_not_configured') }}
+      <a href="{{ url_for('settings_page') }}" class="action-link">{{ t('nav_settings') }}</a>
+    </p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">{{ t('contact_list') }}</div>
+    <form action="{{ url_for('contacts') }}" method="get" class="search-row">
+      <input type="hidden" name="city" value="{{ city_filter }}">
+      <input type="hidden" name="status" value="{{ status_filter }}">
+      <input type="text" name="search" value="{{ search }}" placeholder="{{ t('search_placeholder') }}" class="search-input">
+      <button type="submit">{{ t('search_btn') }}</button>
+      {% if has_filters %}
+      <a href="{{ url_for('contacts') }}" class="clear-link">{{ t('clear') }}</a>
+      {% endif %}
+    </form>
+
+    {% if has_filters %}
+    <p class="hint" style="margin-bottom:10px;">
+      {{ t('results_for', count=filtered_count, query=search) if search else filtered_count }}
+      {% if city_filter %} · {{ t('th_city') }}: {{ city_filter }}{% endif %}
+      {% if status_filter == 'active' %} · {{ t('status_active') }}{% endif %}
+      {% if status_filter == 'opted_out' %} · {{ t('status_optedout') }}{% endif %}
+    </p>
+    {% endif %}
+
+    <div class="table-scroll"><table>
+      <tr><th>{{ t('th_name') }}</th><th>{{ t('th_phone') }}</th><th>{{ t('th_city') }}</th><th>{{ t('th_status') }}</th><th>{{ t('th_consent_source') }}</th><th>{{ t('th_consent_date') }}</th><th>{{ t('th_actions') }}</th></tr>
+      {% for c in contacts %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>{{ c.phone }}</td>
+        <td>{{ c.city }}</td>
+        <td><span class="badge {{ 'fail' if c.opted_out else 'ok' }}">{{ t('status_optedout') if c.opted_out else t('status_active') }}</span></td>
+        <td>{{ c.consent_source }}</td>
+        <td>{{ c.consent_date }}</td>
+        <td class="actions-cell">
+          <a href="{{ url_for('edit_contact', phone=c.phone) }}" class="action-link">{{ t('edit') }}</a>
+          <form action="{{ url_for('delete_contact', phone=c.phone) }}" method="post" class="inline-form" data-confirm="{{ t('delete_contact_confirm') }}">
+            <button type="submit" class="action-link danger">{{ t('delete') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not contacts %}
+      <tr><td colspan="7" class="empty-row">{{ t('no_contacts') }}</td></tr>
+      {% endif %}
+    </table></div>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      {% if page > 1 %}
+        <a href="{{ url_for('contacts', page=page-1, search=search, city=city_filter, status=status_filter) }}" class="page-link">{{ t('prev') }}</a>
+      {% endif %}
+      <span class="page-info">{{ t('page_of', page=page, total=total_pages) }}</span>
+      {% if page < total_pages %}
+        <a href="{{ url_for('contacts', page=page+1, search=search, city=city_filter, status=status_filter) }}" class="page-link">{{ t('next') }}</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <p class="hint" style="margin-top:10px;">{{ t('showing_of', shown=contacts|length, total=contacts_count) }}</p>
+  </div>
+
+  {% if ai_ready %}
+  <script>
+    const smartBtn = document.getElementById('smartSearchBtn');
+    const smartInput = document.getElementById('smartSearchInput');
+    const smartError = document.getElementById('smartSearchError');
+    const genericError = {{ t('smart_search_generic_error')|tojson }};
+    const generatingLabel = {{ t('ai_generating_btn')|tojson }};
+    const searchLabel = {{ t('smart_search_btn')|tojson }};
+
+    smartBtn.addEventListener('click', async () => {
+      const query = smartInput.value.trim();
+      smartError.style.display = 'none';
+      if (!query) return;
+
+      smartBtn.disabled = true;
+      smartBtn.textContent = generatingLabel;
+
+      try {
+        const resp = await fetch('{{ url_for("smart_search_contacts") }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({query: query}),
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+          const params = new URLSearchParams();
+          if (data.filters.city) params.set('city', data.filters.city);
+          if (data.filters.status && data.filters.status !== 'any') params.set('status', data.filters.status);
+          if (data.filters.text) params.set('search', data.filters.text);
+          window.location.href = '{{ url_for("contacts") }}?' + params.toString();
+        } else {
+          smartError.textContent = genericError;
+          smartError.style.display = 'block';
+        }
+      } catch (e) {
+        smartError.textContent = genericError;
+        smartError.style.display = 'block';
+      } finally {
+        smartBtn.disabled = false;
+        smartBtn.textContent = searchLabel;
+      }
+    });
+  </script>
+  {% endif %}
+{% endblock %}

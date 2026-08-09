@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('campaigns_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('campaigns_title') }}</h1>
+  <p class="subtitle">{{ t('campaigns_subtitle') }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if not vonage_ready %}
+  <div class="flash warn">{{ t('vonage_not_configured_list')|safe }}</div>
+  {% endif %}
+
+  <div class="button-row" style="justify-content:flex-start; margin-bottom:14px;">
+    <a href="{{ url_for('new_campaign') }}" class="button-link primary-link">{{ t('new_campaign_btn') }}</a>
+  </div>
+
+  <div class="panel">
+    <div class="table-scroll"><table>
+      <tr><th>{{ t('th_template') }}</th><th>{{ t('th_recipients') }}</th><th>{{ t('th_sent') }}</th><th>{{ t('th_failed') }}</th><th>{{ t('th_mode') }}</th><th>{{ t('th_date') }}</th><th></th></tr>
+      {% for c in campaigns %}
+      <tr>
+        <td>{{ c.template_name }}</td>
+        <td>{{ c.total_recipients }}</td>
+        <td><span class="badge ok">{{ c.sent }}</span></td>
+        <td><span class="badge {{ 'fail' if c.failed|int > 0 else 'ok' }}">{{ c.failed }}</span></td>
+        <td><span class="badge {{ 'pend' if c.mode == 'simulation' else 'ok' }}">{{ c.mode }}</span></td>
+        <td>{{ c.created_at }}</td>
+        <td><a href="{{ url_for('campaign_detail', campaign_id=c.id) }}" class="action-link">{{ t('view') }}</a></td>
+      </tr>
+      {% endfor %}
+      {% if not campaigns %}
+      <tr><td colspan="7" class="empty-row">{{ t('no_campaigns') }}</td></tr>
+      {% endif %}
+    </table></div>
+  </div>
+{% endblock %}

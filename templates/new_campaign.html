@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('new_campaign_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('new_campaign_title') }}</h1>
+  <p class="subtitle">{{ t('new_campaign_subtitle') }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if not vonage_ready %}
+  <div class="flash warn">{{ t('vonage_not_configured_new')|safe }}</div>
+  {% endif %}
+
+  {% if templates|length == 0 %}
+  <div class="panel">
+    <p class="empty-row">{{ t('need_template_msg') }} <a href="{{ url_for('new_template') }}" class="action-link">{{ t('create_one_now') }}</a>.</p>
+  </div>
+  {% else %}
+  <div class="panel">
+    <form method="post" id="campaignForm">
+      <div class="form-group">
+        <label class="field-label">{{ t('template_select_label') }}</label>
+        <select name="template_id" id="templateSelect" class="text-input" required>
+          <option value="" disabled selected>{{ t('select_template_placeholder') }}</option>
+          {% for tpl in templates %}
+          <option value="{{ tpl.id }}" data-body="{{ tpl.body }}">{{ tpl.name }} ({{ tpl.body|length }} {{ t('characters_word') }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">{{ t('preview_label') }}</label>
+        <div class="readonly-value" id="previewBox" style="white-space:pre-wrap; min-height:60px;">{{ t('preview_placeholder') }}</div>
+      </div>
+
+      <div class="form-group">
+        <label class="field-label">{{ t('recipients_label') }}</label>
+        <div class="readonly-value">{{ t('recipients_text', count=active_contacts_count) }}</div>
+      </div>
+
+      <div class="button-row">
+        <a href="{{ url_for('campaigns_page') }}" class="button-link">{{ t('cancel') }}</a>
+        <button type="submit" class="primary" id="sendBtn" onclick="return confirmSend();">
+          {{ t('send_campaign_btn') if vonage_ready else t('run_simulation_btn') }}
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  <script>
+    const select = document.getElementById('templateSelect');
+    const preview = document.getElementById('previewBox');
+    if (select) {
+      select.addEventListener('change', () => {
+        const opt = select.options[select.selectedIndex];
+        preview.textContent = opt.dataset.body || '';
+      });
+    }
+    function confirmSend() {
+      const count = {{ active_contacts_count }};
+      const live = {{ 'true' if vonage_ready else 'false' }};
+      const msg = live
+        ? {{ t('confirm_send_live', count='__COUNT__')|tojson }}.replace('__COUNT__', count)
+        : {{ t('confirm_send_sim', count='__COUNT__')|tojson }}.replace('__COUNT__', count);
+      return confirm(msg);
+    }
+  </script>
+{% endblock %}

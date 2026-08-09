@@ -1,0 +1,5 @@
+flask
+vonage
+pandas
+python-dotenv
+gunicorn

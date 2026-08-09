@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('optouts_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('optouts_title') }}</h1>
+  <p class="subtitle">{{ t('optouts_subtitle', count=optouts|length, total=total_contacts) }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('how_it_works') }}</div>
+    <p class="hint" style="margin:0;">{{ t('how_it_works_text')|safe }}</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('add_manually') }}</div>
+    <form action="{{ url_for('add_optout_manual') }}" method="post" class="inline-row">
+      <input type="text" name="phone" placeholder="{{ t('phone_placeholder') }}" class="text-input" required>
+      <button type="submit" class="primary">{{ t('add_to_optout_btn') }}</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">{{ t('optedout_contacts') }}</div>
+    <form action="{{ url_for('optouts_page') }}" method="get" class="search-row">
+      <input type="text" name="search" value="{{ search }}" placeholder="{{ t('search_placeholder') }}" class="search-input">
+      <button type="submit">{{ t('search_btn') }}</button>
+      {% if search %}
+      <a href="{{ url_for('optouts_page') }}" class="clear-link">{{ t('clear') }}</a>
+      {% endif %}
+    </form>
+
+    <div class="table-scroll"><table>
+      <tr><th>{{ t('th_name') }}</th><th>{{ t('th_phone') }}</th><th>{{ t('th_source') }}</th><th>{{ t('th_date') }}</th><th>{{ t('th_actions') }}</th></tr>
+      {% for c in optouts %}
+      <tr>
+        <td>{{ c.name or '—' }}</td>
+        <td>{{ c.phone }}</td>
+        <td>{{ c.consent_source or '—' }}</td>
+        <td>{{ c.consent_date or '—' }}</td>
+        <td>
+          <form action="{{ url_for('remove_optout', phone=c.phone) }}" method="post" class="inline-form" data-confirm="{{ t('resubscribe_confirm') }}">
+            <button type="submit" class="action-link">{{ t('resubscribe') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not optouts %}
+      <tr><td colspan="5" class="empty-row">{{ t('no_optouts') }}</td></tr>
+      {% endif %}
+    </table></div>
+  </div>
+{% endblock %}

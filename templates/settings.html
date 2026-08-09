@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('settings_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('settings_title') }}</h1>
+  <p class="subtitle">{{ t('settings_subtitle') }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('connection_status') }}</div>
+    <p class="hint" style="margin:0;">
+      {% if vonage_ready %}
+        <span class="badge ok">{{ t('connected_msg') }}</span> {{ t('connected_desc') }}
+      {% else %}
+        <span class="badge pend">{{ t('not_configured_msg') }}</span> {{ t('not_configured_desc') }}
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">{{ t('vonage_credentials') }}</div>
+    <form method="post">
+      <div class="form-group">
+        <label class="field-label">{{ t('api_key_label') }}</label>
+        <input type="text" name="vonage_api_key" value="{{ settings.vonage_api_key }}" class="text-input" placeholder="{{ t('api_key_placeholder') }}" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('api_secret_label') }}</label>
+        <input type="text" name="vonage_api_secret" value="{{ settings.vonage_api_secret }}" class="text-input" placeholder="{{ t('api_secret_placeholder') }}" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('sender_label') }}</label>
+        <input type="text" name="vonage_from_number" value="{{ settings.vonage_from_number }}" class="text-input" placeholder="{{ t('sender_placeholder') }}">
+      </div>
+      <p class="hint">{{ t('settings_hint') }}</p>
+      <div class="button-row" style="justify-content:flex-start;">
+        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
+      </div>
+    </form>
+  </div>
+
+  {% if vonage_ready %}
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-title">{{ t('test_connection_title') }}</div>
+    <p class="hint">{{ t('test_connection_desc') }}</p>
+    <form method="post" action="{{ url_for('test_vonage_connection') }}">
+      <button type="submit">{{ t('test_connection_btn') }}</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-title">{{ t('ai_settings_title') }}</div>
+    <p class="hint">{{ t('ai_settings_desc') }}</p>
+    <form method="post">
+      <input type="hidden" name="vonage_api_key" value="{{ settings.vonage_api_key }}">
+      <input type="hidden" name="vonage_api_secret" value="{{ settings.vonage_api_secret }}">
+      <input type="hidden" name="vonage_from_number" value="{{ settings.vonage_from_number }}">
+      <div class="form-group">
+        <label class="field-label">{{ t('ai_key_label') }}</label>
+        <input type="text" name="anthropic_api_key" value="{{ settings.anthropic_api_key }}" class="text-input" placeholder="{{ t('ai_key_placeholder') }}" autocomplete="off">
+      </div>
+      <div class="button-row" style="justify-content:flex-start;">
+        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-title">{{ t('change_password_title') }}</div>
+    <form method="post" action="{{ url_for('change_password') }}">
+      <div class="form-group">
+        <label class="field-label">{{ t('current_password_label') }}</label>
+        <input type="password" name="current_password" class="text-input" required autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('new_password_label') }}</label>
+        <input type="password" name="new_password" class="text-input" required minlength="8" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('confirm_password_label') }}</label>
+        <input type="password" name="confirm_password" class="text-input" required minlength="8" autocomplete="off">
+      </div>
+      <div class="button-row" style="justify-content:flex-start;">
+        <button type="submit" class="primary">{{ t('change_password_btn') }}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-title">{{ t('message_limits') }}</div>
+    <p class="hint" style="margin:0;">{{ t('message_limits_text', max=max_chars, segments=(max_chars / 153) | round(0, 'ceil') | int) }}</p>
+  </div>
+{% endblock %}

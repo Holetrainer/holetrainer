@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('dash_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('dash_title') }}</h1>
+  <p class="subtitle">{{ t('dash_subtitle') }}</p>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="num">{{ stats.total }}</div>
+      <div class="lbl">{{ t('stat_contacts') }}</div>
+    </div>
+    <div class="stat ok">
+      <div class="num">{{ stats.delivered }}</div>
+      <div class="lbl">{{ t('stat_delivered') }}</div>
+    </div>
+    <div class="stat fail">
+      <div class="num">{{ stats.failed }}</div>
+      <div class="lbl">{{ t('stat_failed') }}</div>
+    </div>
+    <div class="stat pend">
+      <div class="num">{{ stats.pending }}</div>
+      <div class="lbl">{{ t('stat_pending') }}</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">{{ t('recent_sends') }}</div>
+      <div class="table-scroll"><table>
+        <tr><th>{{ t('th_number') }}</th><th>{{ t('th_template') }}</th><th>{{ t('th_status') }}</th></tr>
+        {% for row in recent_sends %}
+        <tr>
+          <td>{{ row.number }}</td>
+          <td>{{ row.template }}</td>
+          <td><span class="badge {{ row.status_class }}">{{ row.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </table></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">{{ t('message_templates') }}</div>
+      <div class="tpl-list">
+        {% for tpl in templates %}
+        <div class="tpl-item">
+          <span class="name">{{ tpl.name }}</span>
+          <span>{{ tpl.chars }}/{{ max_chars }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

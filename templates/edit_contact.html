@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('edit_contact_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('edit_contact_title') }}</h1>
+  <p class="subtitle">{{ t('edit_contact_subtitle') }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="panel">
+    <form method="post">
+      <div class="form-group">
+        <label class="field-label">{{ t('name_field') }}</label>
+        <input type="text" name="name" value="{{ contact.name }}" class="text-input">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('phone_field') }}</label>
+        <input type="text" name="phone" value="{{ contact.phone }}" class="text-input" required>
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('city_field') }}</label>
+        <input type="text" name="city" value="{{ contact.city }}" class="text-input">
+      </div>
+      <div class="form-group checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" name="opted_out" {% if contact.opted_out == 'True' %}checked{% endif %}>
+          {{ t('opted_out_checkbox') }}
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('consent_source_readonly') }}</label>
+        <div class="readonly-value">{{ contact.consent_source or '—' }}</div>
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('consent_date_readonly') }}</label>
+        <div class="readonly-value">{{ contact.consent_date or '—' }}</div>
+      </div>
+      <div class="button-row">
+        <a href="{{ url_for('contacts') }}" class="button-link">{{ t('cancel') }}</a>
+        <button type="submit" class="primary">{{ t('save_changes') }}</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

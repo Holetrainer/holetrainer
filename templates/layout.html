@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ t('brand') }}{% block title_suffix %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    // Apply saved theme immediately to avoid a flash of the wrong theme
+    (function() {
+      const saved = localStorage.getItem('holetrainer-theme');
+      if (saved === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <span class="topbar-brand">{{ t('brand') }}</span>
+  </header>
+
+  <div class="shell">
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">{{ t('brand') }}</div>
+      <nav>
+        <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">{{ t('nav_dashboard') }}</a>
+        <a href="{{ url_for('contacts') }}" class="nav-item {% if active == 'contacts' %}active{% endif %}">{{ t('nav_contacts') }}</a>
+        <a href="{{ url_for('templates_page') }}" class="nav-item {% if active == 'templates' %}active{% endif %}">{{ t('nav_templates') }}</a>
+        <a href="{{ url_for('campaigns_page') }}" class="nav-item {% if active == 'campaigns' %}active{% endif %}">{{ t('nav_campaigns') }}</a>
+        <a href="{{ url_for('optouts_page') }}" class="nav-item {% if active == 'optouts' %}active{% endif %}">{{ t('nav_optouts') }}</a>
+        <a href="{{ url_for('settings_page') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">{{ t('nav_settings') }}</a>
+      </nav>
+
+      <div class="sidebar-controls">
+        {% if session.get('user') %}
+        <div class="session-info">
+          <span class="session-user">{{ t('signed_in_as', username=session.get('user')) }}</span>
+          <a href="{{ url_for('logout') }}" class="logout-link">{{ t('logout') }}</a>
+        </div>
+        {% endif %}
+        <div class="lang-switch">
+          <a href="{{ url_for('set_language', lang='en') }}" class="lang-btn {% if current_lang == 'en' %}active{% endif %}">EN</a>
+          <a href="{{ url_for('set_language', lang='es') }}" class="lang-btn {% if current_lang == 'es' %}active{% endif %}">ES</a>
+        </div>
+        <button class="theme-toggle" id="themeToggle" type="button">
+          <span id="themeIcon">&#9789;</span>
+          <span id="themeLabel">{{ t('theme_dark') }}</span>
+        </button>
+      </div>
+    </aside>
+    <main class="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+
+    function closeMenu() {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('visible');
+      menuToggle.setAttribute('aria-expanded', 'false');
+    }
+    function openMenu() {
+      sidebar.classList.add('open');
+      overlay.classList.add('visible');
+      menuToggle.setAttribute('aria-expanded', 'true');
+    }
+    menuToggle.addEventListener('click', () => {
+      sidebar.classList.contains('open') ? closeMenu() : openMenu();
+    });
+    overlay.addEventListener('click', closeMenu);
+    document.querySelectorAll('.nav-item').forEach(link => link.addEventListener('click', closeMenu));
+
+    // Global, quote-safe confirmation handler for any form with data-confirm
+    document.querySelectorAll('form[data-confirm]').forEach(form => {
+      form.addEventListener('submit', (e) => {
+        if (!confirm(form.dataset.confirm)) {
+          e.preventDefault();
+        }
+      });
+    });
+
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeLabel = document.getElementById('themeLabel');
+    const labels = { dark: {{ t('theme_dark')|tojson }}, light: {{ t('theme_light')|tojson }} };
+
+    function currentTheme() {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+    function updateToggleUI() {
+      const isLight = currentTheme() === 'light';
+      themeIcon.innerHTML = isLight ? '&#9788;' : '&#9789;';
+      themeLabel.textContent = isLight ? labels.light : labels.dark;
+    }
+    themeToggle.addEventListener('click', () => {
+      const next = currentTheme() === 'light' ? 'dark' : 'light';
+      if (next === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      localStorage.setItem('holetrainer-theme', next);
+      updateToggleUI();
+    });
+    updateToggleUI();
+  </script>
+</body>
+</html>
