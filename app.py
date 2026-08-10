@@ -442,6 +442,16 @@ def dashboard():
     )
 
 
+def get_cities_summary(all_contacts):
+    """Distinct cities with contact counts, most common first."""
+    city_counts = {}
+    for c in all_contacts:
+        city = c.get("city", "").strip()
+        if city:
+            city_counts[city] = city_counts.get(city, 0) + 1
+    return sorted(city_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+
 @app.route("/contacts")
 def contacts():
     all_contacts = load_contacts()
@@ -464,6 +474,19 @@ def contacts():
         filtered = [c for c in filtered if c.get("opted_out") == "True"]
 
     has_filters = bool(search or city_filter or status_filter)
+
+    # Group/order by city so contacts from the same city sit together,
+    # instead of appearing in random import order. Contacts with no city
+    # detected sort last.
+    filtered = sorted(
+        filtered,
+        key=lambda c: (c.get("city", "").strip() == "", c.get("city", "").lower(), c.get("name", "").lower())
+    )
+
+    # Summary of distinct cities with counts, for the overview panel and
+    # the autocomplete list — built from ALL contacts, not just the current
+    # filtered page, so it always reflects the full picture.
+    cities_summary = get_cities_summary(all_contacts)
 
     page = request.args.get("page", 1, type=int)
     if page < 1:
@@ -498,6 +521,7 @@ def contacts():
         city_filter=request.args.get("city", ""),
         status_filter=status_filter,
         has_filters=has_filters,
+        cities_summary=cities_summary,
         page=page,
         total_pages=total_pages,
         ai_ready=anthropic_is_configured(),
@@ -779,7 +803,8 @@ def delete_template(template_id):
     return redirect(url_for("templates_page"))
 
 
-CAMPAIGN_FIELDS = ["id", "template_id", "template_name", "total_recipients", "sent", "failed", "status", "mode", "created_at"]
+CAMPAIGN_FIELDS = ["id", "template_id", "template_name", "total_recipients", "sent", "failed",
+                    "status", "mode", "created_at", "scheduled_at", "city_filter", "days_filter"]
 LOG_FIELDS = ["timestamp", "campaign_id", "phone", "status", "detail"]
 
 campaigns_lock = threading.Lock()
@@ -790,7 +815,12 @@ def load_campaigns():
         return []
     with open(config.CAMPAIGNS_FILE, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        return list(reader)
+        rows = []
+        for row in reader:
+            for field in CAMPAIGN_FIELDS:
+                row.setdefault(field, "")
+            rows.append(row)
+        return rows
 
 
 def save_campaigns(campaigns):
@@ -798,7 +828,8 @@ def save_campaigns(campaigns):
     with open(tmp_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CAMPAIGN_FIELDS)
         writer.writeheader()
-        writer.writerows(campaigns)
+        for c in campaigns:
+            writer.writerow({field: c.get(field, "") for field in CAMPAIGN_FIELDS})
     os.replace(tmp_file, config.CAMPAIGNS_FILE)
 
 
@@ -824,7 +855,9 @@ def mark_stale_campaigns_interrupted():
     """Run once at startup. Any campaign still marked 'in_progress' means the
     previous process died (restart, redeploy, crash) before finishing — there
     is no background thread actually running for it anymore, so it's honest
-    to mark it interrupted rather than leave it looking like it's still going."""
+    to mark it interrupted rather than leave it looking like it's still going.
+    Scheduled campaigns are left untouched — the scheduler thread will pick
+    them up normally."""
     campaigns = load_campaigns()
     changed = False
     for c in campaigns:
@@ -889,6 +922,50 @@ def estimate_send_duration(count):
     return f"~{hours:.1f} hr"
 
 
+def get_last_sent_map():
+    """Scan the send log once and return {phone: latest datetime sent}."""
+    last_sent = {}
+    if not os.path.exists(config.LOG_FILE):
+        return last_sent
+    with open(config.LOG_FILE, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get("status") != "sent":
+                continue
+            phone = row.get("phone", "")
+            try:
+                ts = datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S")
+            except (ValueError, KeyError):
+                continue
+            if phone not in last_sent or ts > last_sent[phone]:
+                last_sent[phone] = ts
+    return last_sent
+
+
+def filter_recipients(active_contacts, city_filter="", days_filter=""):
+    """Apply optional city and 'not messaged in N days' segmentation filters."""
+    filtered = active_contacts
+
+    if city_filter:
+        cf = city_filter.strip().lower()
+        filtered = [c for c in filtered if cf in c.get("city", "").lower()]
+
+    if days_filter:
+        try:
+            days = int(days_filter)
+        except ValueError:
+            days = None
+        if days is not None and days > 0:
+            last_sent = get_last_sent_map()
+            cutoff = datetime.now() - timedelta(days=days)
+            filtered = [
+                c for c in filtered
+                if c["phone"] not in last_sent or last_sent[c["phone"]] < cutoff
+            ]
+
+    return filtered
+
+
 def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds):
     """Runs in a background thread. Never touches Flask's request/session —
     everything it needs is passed in as plain values up front."""
@@ -944,6 +1021,60 @@ def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds
     update_campaign_record(campaign_id, sent=sent_count, failed=failed_count, status="completed")
 
 
+def start_campaign_send(campaign_id, template_body, recipients, mode):
+    """Kick off a background send thread, snapshotting Vonage creds up front."""
+    vonage_creds = load_settings() if mode == "live" else {}
+    thread = threading.Thread(
+        target=run_campaign_send,
+        args=(campaign_id, template_body, [dict(c) for c in recipients], mode, vonage_creds),
+        daemon=True,
+    )
+    thread.start()
+
+
+def process_due_scheduled_campaigns():
+    """Check for scheduled campaigns whose time has come and launch them.
+    Extracted from the loop so it can be triggered directly (used by the
+    background scheduler thread every 30s, and callable on-demand)."""
+    with campaigns_lock:
+        campaigns = load_campaigns()
+        due = [
+            c for c in campaigns
+            if c.get("status") == "scheduled"
+            and c.get("scheduled_at")
+            and datetime.now() >= datetime.strptime(c["scheduled_at"], "%Y-%m-%d %H:%M:%S")
+        ]
+        for c in due:
+            c["status"] = "in_progress"
+        save_campaigns(campaigns)
+
+    for c in due:
+        all_templates = load_templates()
+        template = next((t for t in all_templates if t["id"] == c["template_id"]), None)
+        if not template:
+            update_campaign_record(c["id"], status="completed", sent=0, failed=0)
+            continue
+
+        all_contacts = load_contacts()
+        active_contacts = [ct for ct in all_contacts if ct.get("opted_out") != "True"]
+        recipients = filter_recipients(active_contacts, c.get("city_filter", ""), c.get("days_filter", ""))
+
+        mode = "live" if vonage_is_configured() else "simulation"
+        update_campaign_record(c["id"], mode=mode, total_recipients=len(recipients))
+        start_campaign_send(c["id"], template["body"], recipients, mode)
+
+
+def run_scheduler():
+    """Background loop (started once at app startup) that checks every 30s
+    for scheduled campaigns whose time has come, and launches them."""
+    while True:
+        try:
+            process_due_scheduled_campaigns()
+        except Exception:
+            pass
+        time.sleep(30)
+
+
 @app.route("/campaigns")
 def campaigns_page():
     all_campaigns = load_campaigns()
@@ -954,6 +1085,15 @@ def campaigns_page():
         campaigns=all_campaigns,
         vonage_ready=vonage_is_configured(),
     )
+
+
+@app.route("/campaigns/preview-audience", methods=["POST"])
+def preview_audience():
+    data = request.get_json(silent=True) or {}
+    all_contacts = load_contacts()
+    active_contacts = [c for c in all_contacts if c.get("opted_out") != "True"]
+    filtered = filter_recipients(active_contacts, data.get("city", ""), data.get("days", ""))
+    return jsonify({"count": len(filtered), "estimated_time": estimate_send_duration(len(filtered)) if filtered else ""})
 
 
 @app.route("/campaigns/new", methods=["GET", "POST"])
@@ -969,51 +1109,82 @@ def new_campaign():
 
     if request.method == "POST":
         template_id = request.form.get("template_id", "")
-        target = next((t for t in all_templates if t["id"] == template_id), None)
+        city_filter = request.form.get("city_filter", "").strip()
+        days_filter = request.form.get("days_filter", "").strip()
+        scheduled_at_raw = request.form.get("scheduled_at", "").strip()
 
+        target = next((t for t in all_templates if t["id"] == template_id), None)
         if not target:
             flash("Please select a valid template.", "error")
             return redirect(url_for("new_campaign"))
 
-        if not active_contacts:
-            flash("No active contacts to send to.", "error")
+        recipients = filter_recipients(active_contacts, city_filter, days_filter)
+        if not recipients:
+            flash("No active contacts match the selected audience.", "error")
             return redirect(url_for("new_campaign"))
-
-        vonage_ready = vonage_is_configured()
-        mode = "live" if vonage_ready else "simulation"
-        vonage_creds = load_settings() if vonage_ready else {}
 
         campaigns = load_campaigns()
         campaign_id = next_campaign_id(campaigns)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        scheduled_dt = None
+        if scheduled_at_raw:
+            try:
+                scheduled_dt = datetime.strptime(scheduled_at_raw, "%Y-%m-%dT%H:%M")
+            except ValueError:
+                scheduled_dt = None
+            if scheduled_dt and scheduled_dt <= datetime.now():
+                scheduled_dt = None  # ignore past/invalid times, send immediately instead
+
+        if scheduled_dt:
+            new_campaign_record = {
+                "id": campaign_id,
+                "template_id": template_id,
+                "template_name": target["name"],
+                "total_recipients": str(len(recipients)),
+                "sent": "0",
+                "failed": "0",
+                "status": "scheduled",
+                "mode": "live" if vonage_is_configured() else "simulation",
+                "created_at": timestamp,
+                "scheduled_at": scheduled_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                "city_filter": city_filter,
+                "days_filter": days_filter,
+            }
+            campaigns.append(new_campaign_record)
+            save_campaigns(campaigns)
+            flash(
+                f"Campaign scheduled for {scheduled_dt.strftime('%b %d, %Y at %I:%M %p')} "
+                f"— {len(recipients)} contact(s) will be re-evaluated at send time.",
+                "success",
+            )
+            return redirect(url_for("campaign_detail", campaign_id=campaign_id))
+
+        vonage_ready = vonage_is_configured()
+        mode = "live" if vonage_ready else "simulation"
+
         new_campaign_record = {
             "id": campaign_id,
             "template_id": template_id,
             "template_name": target["name"],
-            "total_recipients": str(len(active_contacts)),
+            "total_recipients": str(len(recipients)),
             "sent": "0",
             "failed": "0",
             "status": "in_progress",
             "mode": mode,
             "created_at": timestamp,
+            "scheduled_at": "",
+            "city_filter": city_filter,
+            "days_filter": days_filter,
         }
         campaigns.append(new_campaign_record)
         save_campaigns(campaigns)
 
-        # Snapshot everything the background thread needs as plain values —
-        # it must never touch Flask's request/session objects.
-        recipients_snapshot = [dict(c) for c in active_contacts]
-        thread = threading.Thread(
-            target=run_campaign_send,
-            args=(campaign_id, target["body"], recipients_snapshot, mode, vonage_creds),
-            daemon=True,
-        )
-        thread.start()
+        start_campaign_send(campaign_id, target["body"], recipients, mode)
 
         flash(
-            f"Campaign started for {len(active_contacts)} contacts. "
-            f"Estimated time: {estimate_send_duration(len(active_contacts))}. "
+            f"Campaign started for {len(recipients)} contacts. "
+            f"Estimated time: {estimate_send_duration(len(recipients))}. "
             f"You can safely leave this page — progress is saved.",
             "success",
         )
@@ -1027,6 +1198,7 @@ def new_campaign():
         vonage_ready=vonage_is_configured(),
         estimated_duration=estimate_send_duration(len(active_contacts)) if active_contacts else "",
         send_rate=config.SEND_RATE_PER_SECOND,
+        cities_summary=get_cities_summary(all_contacts),
     )
 
 
@@ -1044,12 +1216,15 @@ def campaign_detail(campaign_id):
             reader = csv.DictReader(f)
             log_entries = [r for r in reader if r["campaign_id"] == campaign_id]
 
+    failed_count = sum(1 for e in log_entries if e["status"] == "failed")
+
     return render_template(
         "campaign_detail.html",
         active="campaigns",
         campaign=target,
         log_entries=list(reversed(log_entries))[:100],
         log_total=len(log_entries),
+        has_failed=failed_count > 0,
     )
 
 
@@ -1061,16 +1236,134 @@ def campaign_status(campaign_id):
         return jsonify({"error": "not_found"}), 404
     return jsonify({
         "status": target["status"],
-        "sent": int(target["sent"]),
-        "failed": int(target["failed"]),
-        "total_recipients": int(target["total_recipients"]),
+        "sent": int(target["sent"] or 0),
+        "failed": int(target["failed"] or 0),
+        "total_recipients": int(target["total_recipients"] or 0),
     })
+
+
+@app.route("/campaigns/<campaign_id>/cancel", methods=["POST"])
+def cancel_campaign(campaign_id):
+    campaigns = load_campaigns()
+    target = next((c for c in campaigns if c["id"] == campaign_id), None)
+    if not target or target.get("status") != "scheduled":
+        flash("Only scheduled campaigns can be cancelled.", "error")
+        return redirect(url_for("campaigns_page"))
+    update_campaign_record(campaign_id, status="cancelled")
+    flash("Scheduled campaign cancelled.", "success")
+    return redirect(url_for("campaigns_page"))
+
+
+@app.route("/campaigns/<campaign_id>/resend-failed", methods=["POST"])
+def resend_failed(campaign_id):
+    campaigns = load_campaigns()
+    original = next((c for c in campaigns if c["id"] == campaign_id), None)
+    if not original:
+        flash("Campaign not found.", "error")
+        return redirect(url_for("campaigns_page"))
+
+    in_progress = get_in_progress_campaign()
+    if in_progress:
+        flash("A campaign is already sending. Please wait for it to finish before starting another.", "warn")
+        return redirect(url_for("campaign_detail", campaign_id=in_progress["id"]))
+
+    failed_phones = set()
+    if os.path.exists(config.LOG_FILE):
+        with open(config.LOG_FILE, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row["campaign_id"] == campaign_id and row["status"] == "failed":
+                    failed_phones.add(row["phone"])
+
+    all_templates = load_templates()
+    template = next((t for t in all_templates if t["id"] == original["template_id"]), None)
+    if not template:
+        flash("The original template no longer exists.", "error")
+        return redirect(url_for("campaign_detail", campaign_id=campaign_id))
+
+    all_contacts = load_contacts()
+    recipients = [c for c in all_contacts if c["phone"] in failed_phones and c.get("opted_out") != "True"]
+
+    if not recipients:
+        flash("No failed contacts to resend to (they may have opted out since).", "error")
+        return redirect(url_for("campaign_detail", campaign_id=campaign_id))
+
+    vonage_ready = vonage_is_configured()
+    mode = "live" if vonage_ready else "simulation"
+
+    campaigns_all = load_campaigns()
+    new_id = next_campaign_id(campaigns_all)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    new_record = {
+        "id": new_id,
+        "template_id": original["template_id"],
+        "template_name": f"{original['template_name']} (resend)",
+        "total_recipients": str(len(recipients)),
+        "sent": "0",
+        "failed": "0",
+        "status": "in_progress",
+        "mode": mode,
+        "created_at": timestamp,
+        "scheduled_at": "",
+        "city_filter": "",
+        "days_filter": "",
+    }
+    campaigns_all.append(new_record)
+    save_campaigns(campaigns_all)
+
+    start_campaign_send(new_id, template["body"], recipients, mode)
+
+    flash(f"Resending to {len(recipients)} previously failed contact(s).", "success")
+    return redirect(url_for("campaign_detail", campaign_id=new_id))
+
+
+@app.route("/analytics")
+def analytics_page():
+    all_campaigns = load_campaigns()
+    completed = [c for c in all_campaigns if c.get("status") == "completed"]
+
+    by_date = {}
+    for c in completed:
+        date_key = (c.get("created_at") or "")[:10]
+        if not date_key:
+            continue
+        entry = by_date.setdefault(date_key, {"sent": 0, "failed": 0})
+        entry["sent"] += int(c.get("sent") or 0)
+        entry["failed"] += int(c.get("failed") or 0)
+
+    sorted_dates = sorted(by_date.keys())
+    chart_labels = sorted_dates
+    chart_sent = [by_date[d]["sent"] for d in sorted_dates]
+    chart_failed = [by_date[d]["failed"] for d in sorted_dates]
+
+    total_sent = sum(int(c.get("sent") or 0) for c in completed)
+    total_failed = sum(int(c.get("failed") or 0) for c in completed)
+    total_attempted = total_sent + total_failed
+    overall_rate = round((total_sent / total_attempted) * 100, 1) if total_attempted else 0
+
+    campaigns_sorted = sorted(completed, key=lambda c: int(c["id"]), reverse=True)
+
+    return render_template(
+        "analytics.html",
+        active="analytics",
+        chart_labels=chart_labels,
+        chart_sent=chart_sent,
+        chart_failed=chart_failed,
+        total_sent=total_sent,
+        total_failed=total_failed,
+        overall_rate=overall_rate,
+        campaigns=campaigns_sorted[:50],
+    )
 
 
 # Runs once when the app process starts (including after every restart or
 # redeploy). Any campaign left "in_progress" from a previous process is
 # honestly marked as interrupted rather than shown as still running forever.
 mark_stale_campaigns_interrupted()
+
+# Background thread that checks for due scheduled campaigns every 30s.
+threading.Thread(target=run_scheduler, daemon=True).start()
 
 
 def mask_secret(value):

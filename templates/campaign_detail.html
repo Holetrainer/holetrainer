@@ -5,9 +5,11 @@
   <p class="subtitle">
     {{ t('campaign_detail_subtitle', id=campaign.id, date=campaign.created_at) }}
     · <span class="badge {{ 'pend' if campaign.mode == 'simulation' else 'ok' }}">{{ campaign.mode }}</span>
-    · <span class="badge {{ 'pend' if campaign.status == 'in_progress' else ('fail' if campaign.status == 'interrupted' else 'ok') }}" id="statusBadge">
+    · <span class="badge {{ 'pend' if campaign.status in ['in_progress', 'scheduled'] else ('fail' if campaign.status in ['interrupted', 'cancelled'] else 'ok') }}" id="statusBadge">
         {% if campaign.status == 'in_progress' %}{{ t('status_sending') }}
         {% elif campaign.status == 'interrupted' %}{{ t('status_interrupted') }}
+        {% elif campaign.status == 'scheduled' %}{{ t('status_scheduled') }}
+        {% elif campaign.status == 'cancelled' %}{{ t('status_cancelled') }}
         {% else %}{{ t('status_completed') }}{% endif %}
       </span>
   </p>
@@ -24,6 +26,21 @@
   <div class="flash pend">{{ t('sending_in_progress_note') }}</div>
   {% elif campaign.status == 'interrupted' %}
   <div class="flash error">{{ t('interrupted_note') }}</div>
+  {% elif campaign.status == 'scheduled' %}
+  <div class="flash pend">{{ t('scheduled_note', date=campaign.scheduled_at) }}</div>
+  {% if campaign.city_filter or campaign.days_filter %}
+  <p class="hint">
+    {{ t('audience_section_title') }}:
+    {% if campaign.city_filter %}{{ t('city_filter_label') }} "{{ campaign.city_filter }}"{% endif %}
+    {% if campaign.city_filter and campaign.days_filter %} · {% endif %}
+    {% if campaign.days_filter %}{{ t('days_filter_label') }}: {{ campaign.days_filter }}{% endif %}
+  </p>
+  {% endif %}
+  <form action="{{ url_for('cancel_campaign', campaign_id=campaign.id) }}" method="post" data-confirm="{{ t('cancel_schedule_confirm') }}">
+    <button type="submit" class="action-link danger">{{ t('cancel_schedule_btn') }}</button>
+  </form>
+  {% elif campaign.status == 'cancelled' %}
+  <div class="flash error">{{ t('cancelled_note') }}</div>
   {% endif %}
 
   {% if campaign.status == 'in_progress' %}
@@ -36,7 +53,7 @@
   {% endif %}
 
   <div class="stats-row">
-    <div class="stat">
+    <div class="stat total">
       <div class="num" id="statTotal">{{ campaign.total_recipients }}</div>
       <div class="lbl">{{ t('th_recipients') }}</div>
     </div>
@@ -49,6 +66,16 @@
       <div class="lbl">{{ t('th_failed') }}</div>
     </div>
   </div>
+
+  {% if campaign.status == 'completed' and has_failed %}
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('resend_section_title') }}</div>
+    <p class="hint">{{ t('resend_section_desc') }}</p>
+    <form action="{{ url_for('resend_failed', campaign_id=campaign.id) }}" method="post" data-confirm="{{ t('resend_confirm') }}">
+      <button type="submit" class="primary">{{ t('resend_failed_btn') }}</button>
+    </form>
+  </div>
+  {% endif %}
 
   <div class="panel">
     <div class="panel-title">{{ t('send_log') }} {% if log_total > 100 %}{{ t('showing_first', total=log_total) }}{% endif %}</div>

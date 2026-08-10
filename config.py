@@ -17,7 +17,7 @@ CAMPAIGNS_FILE = os.path.join(DATA_DIR, "campaigns.csv")
 OPTOUT_FILE = os.path.join(DATA_DIR, "opt_outs.csv")
 LOG_FILE = os.path.join(LOGS_DIR, "envios.log")
 
-MENSAJE_MAX_CHARS = 700
+MENSAJE_MAX_CHARS = 1000
 
 # Messages per second sent to Vonage. Vonage's default rate limit for most
 # accounts is around 1 message/second unless you've requested a higher

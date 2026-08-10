@@ -22,10 +22,19 @@
 
   <div class="panel">
     <div class="table-scroll"><table>
-      <tr><th>{{ t('th_template') }}</th><th>{{ t('th_recipients') }}</th><th>{{ t('th_sent') }}</th><th>{{ t('th_failed') }}</th><th>{{ t('th_mode') }}</th><th>{{ t('th_date') }}</th><th></th></tr>
+      <tr><th>{{ t('th_template') }}</th><th>{{ t('th_status') }}</th><th>{{ t('th_recipients') }}</th><th>{{ t('th_sent') }}</th><th>{{ t('th_failed') }}</th><th>{{ t('th_mode') }}</th><th>{{ t('th_date') }}</th><th></th></tr>
       {% for c in campaigns %}
       <tr>
         <td>{{ c.template_name }}</td>
+        <td>
+          <span class="badge {{ 'pend' if c.status in ['in_progress', 'scheduled'] else ('fail' if c.status in ['interrupted', 'cancelled'] else 'ok') }}">
+            {% if c.status == 'in_progress' %}{{ t('status_sending') }}
+            {% elif c.status == 'scheduled' %}{{ t('status_scheduled') }}
+            {% elif c.status == 'interrupted' %}{{ t('status_interrupted') }}
+            {% elif c.status == 'cancelled' %}{{ t('status_cancelled') }}
+            {% else %}{{ t('status_completed') }}{% endif %}
+          </span>
+        </td>
         <td>{{ c.total_recipients }}</td>
         <td><span class="badge ok">{{ c.sent }}</span></td>
         <td><span class="badge {{ 'fail' if c.failed|int > 0 else 'ok' }}">{{ c.failed }}</span></td>
@@ -35,7 +44,7 @@
       </tr>
       {% endfor %}
       {% if not campaigns %}
-      <tr><td colspan="7" class="empty-row">{{ t('no_campaigns') }}</td></tr>
+      <tr><td colspan="8" class="empty-row">{{ t('no_campaigns') }}</td></tr>
       {% endif %}
     </table></div>
   </div>

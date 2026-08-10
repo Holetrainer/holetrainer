@@ -38,17 +38,40 @@
         <div class="readonly-value" id="previewBox" style="white-space:pre-wrap; min-height:60px;">{{ t('preview_placeholder') }}</div>
       </div>
 
+      <div class="panel-title" style="margin-top:4px;">{{ t('audience_section_title') }}</div>
+
       <div class="form-group">
-        <label class="field-label">{{ t('recipients_label') }}</label>
-        <div class="readonly-value">{{ t('recipients_text', count=active_contacts_count) }}</div>
+        <label class="field-label">{{ t('city_filter_label') }}</label>
+        <input type="text" name="city_filter" id="cityFilter" class="text-input" placeholder="{{ t('city_filter_placeholder') }}" list="campaignCityDatalist">
+        <datalist id="campaignCityDatalist">
+          {% for city, count in cities_summary %}
+          <option value="{{ city }}">
+          {% endfor %}
+        </datalist>
       </div>
 
-      {% if vonage_ready and active_contacts_count > 0 %}
       <div class="form-group">
-        <label class="field-label">{{ t('estimated_time_label') }}</label>
-        <div class="readonly-value">{{ t('estimated_time_text', time=estimated_duration, rate=send_rate) }}</div>
+        <label class="field-label">{{ t('days_filter_label') }}</label>
+        <input type="number" name="days_filter" id="daysFilter" class="text-input" min="1" placeholder="{{ t('days_filter_placeholder') }}">
+        <p class="hint" style="margin-top:4px;">{{ t('days_filter_hint') }}</p>
       </div>
-      {% endif %}
+
+      <div class="form-group">
+        <label class="field-label">{{ t('recipients_label') }}</label>
+        <div class="readonly-value" id="audienceCount">{{ t('recipients_text', count=active_contacts_count) }}</div>
+      </div>
+
+      <div class="form-group" id="estimatedTimeGroup" {% if not (vonage_ready and active_contacts_count > 0) %}style="display:none;"{% endif %}>
+        <label class="field-label">{{ t('estimated_time_label') }}</label>
+        <div class="readonly-value" id="estimatedTime">{{ t('estimated_time_text', time=estimated_duration, rate=send_rate) }}</div>
+      </div>
+
+      <div class="panel-title" style="margin-top:4px;">{{ t('schedule_section_title') }}</div>
+      <div class="form-group">
+        <label class="field-label">{{ t('schedule_label') }}</label>
+        <input type="datetime-local" name="scheduled_at" id="scheduledAt" class="text-input">
+        <p class="hint" style="margin-top:4px;">{{ t('schedule_hint') }}</p>
+      </div>
 
       <div class="button-row">
         <a href="{{ url_for('campaigns_page') }}" class="button-link">{{ t('cancel') }}</a>
@@ -69,12 +92,48 @@
         preview.textContent = opt.dataset.body || '';
       });
     }
+
+    const cityFilter = document.getElementById('cityFilter');
+    const daysFilter = document.getElementById('daysFilter');
+    const audienceCount = document.getElementById('audienceCount');
+    const estimatedTimeGroup = document.getElementById('estimatedTimeGroup');
+    const estimatedTime = document.getElementById('estimatedTime');
+    const vonageReady = {{ 'true' if vonage_ready else 'false' }};
+    let currentAudienceCount = {{ active_contacts_count }};
+    let debounceTimer;
+
+    function updateAudiencePreview() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const resp = await fetch('{{ url_for("preview_audience") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({city: cityFilter.value, days: daysFilter.value}),
+          });
+          const data = await resp.json();
+          currentAudienceCount = data.count;
+          audienceCount.textContent = {{ t('recipients_text', count='__COUNT__')|tojson }}.replace('__COUNT__', data.count);
+          if (vonageReady && data.count > 0) {
+            estimatedTimeGroup.style.display = '';
+            estimatedTime.textContent = {{ t('estimated_time_text', time='__TIME__', rate=send_rate)|tojson }}.replace('__TIME__', data.estimated_time);
+          } else {
+            estimatedTimeGroup.style.display = 'none';
+          }
+        } catch (e) { /* ignore, keep last known count */ }
+      }, 400);
+    }
+    cityFilter.addEventListener('input', updateAudiencePreview);
+    daysFilter.addEventListener('input', updateAudiencePreview);
+
     function confirmSend() {
-      const count = {{ active_contacts_count }};
-      const live = {{ 'true' if vonage_ready else 'false' }};
-      const msg = live
-        ? {{ t('confirm_send_live', count='__COUNT__')|tojson }}.replace('__COUNT__', count)
-        : {{ t('confirm_send_sim', count='__COUNT__')|tojson }}.replace('__COUNT__', count);
+      const scheduledAt = document.getElementById('scheduledAt').value;
+      if (scheduledAt) {
+        return confirm({{ t('confirm_schedule', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount));
+      }
+      const msg = vonageReady
+        ? {{ t('confirm_send_live', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount)
+        : {{ t('confirm_send_sim', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount);
       return confirm(msg);
     }
   </script>

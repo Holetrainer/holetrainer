@@ -535,6 +535,7 @@ button.primary{
   .sidebar.open .nav-item:nth-child(4){animation-delay:0.12s;}
   .sidebar.open .nav-item:nth-child(5){animation-delay:0.15s;}
   .sidebar.open .nav-item:nth-child(6){animation-delay:0.18s;}
+  .sidebar.open .nav-item:nth-child(7){animation-delay:0.21s;}
 
   .main{
     padding:16px;
@@ -648,4 +649,49 @@ button.primary{
 @keyframes navItemIn{
   from{opacity:0; transform:translateX(-8px);}
   to{opacity:1; transform:translateX(0);}
+}
+
+/* ============ CITY SUMMARY & TAGS ============ */
+.city-pill-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.city-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  background:var(--bg-field);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  padding:6px 12px;
+  font-size:12px;
+  color:var(--text);
+  text-decoration:none;
+  transition:border-color 0.15s ease, background 0.15s ease;
+}
+.city-pill:hover{border-color:var(--accent);}
+.city-pill.active{
+  background:rgba(79,209,197,0.12);
+  border-color:var(--accent);
+  color:var(--accent);
+}
+.city-pill-count{
+  background:var(--bg-shell);
+  border-radius:10px;
+  padding:1px 7px;
+  font-size:10px;
+  font-weight:700;
+  color:var(--text-dim);
+}
+.city-pill.active .city-pill-count{color:var(--accent);}
+.city-tag{
+  display:inline-block;
+  background:var(--bg-field);
+  border:1px solid var(--border2);
+  border-radius:4px;
+  padding:2px 8px;
+  font-size:11px;
+  color:var(--text-dim);
+  white-space:nowrap;
 }

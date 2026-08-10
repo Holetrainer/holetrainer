@@ -51,12 +51,32 @@
     {% endif %}
   </div>
 
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('cities_summary_title') }}</div>
+    {% if cities_summary %}
+    <div class="city-pill-row">
+      {% for city, count in cities_summary %}
+      <a href="{{ url_for('contacts', city=city) }}" class="city-pill {% if city_filter == city %}active{% endif %}">
+        {{ city }} <span class="city-pill-count">{{ count }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-row">{{ t('no_cities_detected') }}</p>
+    {% endif %}
+  </div>
+
   <div class="panel">
     <div class="panel-title">{{ t('contact_list') }}</div>
     <form action="{{ url_for('contacts') }}" method="get" class="search-row">
-      <input type="hidden" name="city" value="{{ city_filter }}">
       <input type="hidden" name="status" value="{{ status_filter }}">
       <input type="text" name="search" value="{{ search }}" placeholder="{{ t('search_placeholder') }}" class="search-input">
+      <input type="text" name="city" value="{{ city_filter }}" placeholder="{{ t('city_filter_label') }}" class="search-input" list="cityDatalist" style="max-width:180px;">
+      <datalist id="cityDatalist">
+        {% for city, count in cities_summary %}
+        <option value="{{ city }}">
+        {% endfor %}
+      </datalist>
       <button type="submit">{{ t('search_btn') }}</button>
       {% if has_filters %}
       <a href="{{ url_for('contacts') }}" class="clear-link">{{ t('clear') }}</a>
@@ -78,7 +98,7 @@
       <tr>
         <td>{{ c.name }}</td>
         <td>{{ c.phone }}</td>
-        <td>{{ c.city }}</td>
+        <td>{% if c.city != '—' %}<span class="city-tag">{{ c.city }}</span>{% else %}—{% endif %}</td>
         <td><span class="badge {{ 'fail' if c.opted_out else 'ok' }}">{{ t('status_optedout') if c.opted_out else t('status_active') }}</span></td>
         <td>{{ c.consent_source }}</td>
         <td>{{ c.consent_date }}</td>

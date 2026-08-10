@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('analytics_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('analytics_title') }}</h1>
+  <p class="subtitle">{{ t('analytics_subtitle') }}</p>
+
+  <div class="stats-row">
+    <div class="stat ok">
+      <div class="num">{{ total_sent }}</div>
+      <div class="lbl">{{ t('stat_delivered') }}</div>
+    </div>
+    <div class="stat fail">
+      <div class="num">{{ total_failed }}</div>
+      <div class="lbl">{{ t('stat_failed') }}</div>
+    </div>
+    <div class="stat total">
+      <div class="num">{{ overall_rate }}%</div>
+      <div class="lbl">{{ t('overall_rate_label') }}</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('trend_chart_title') }}</div>
+    {% if chart_labels|length > 0 %}
+    <canvas id="trendChart" height="90"></canvas>
+    {% else %}
+    <p class="empty-row">{{ t('no_analytics_data') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">{{ t('campaign_history_title') }}</div>
+    <div class="table-scroll"><table>
+      <tr><th>{{ t('th_template') }}</th><th>{{ t('th_recipients') }}</th><th>{{ t('th_sent') }}</th><th>{{ t('th_failed') }}</th><th>{{ t('th_date') }}</th></tr>
+      {% for c in campaigns %}
+      <tr>
+        <td>{{ c.template_name }}</td>
+        <td>{{ c.total_recipients }}</td>
+        <td><span class="badge ok">{{ c.sent }}</span></td>
+        <td><span class="badge {{ 'fail' if c.failed|int > 0 else 'ok' }}">{{ c.failed }}</span></td>
+        <td>{{ c.created_at }}</td>
+      </tr>
+      {% endfor %}
+      {% if not campaigns %}
+      <tr><td colspan="5" class="empty-row">{{ t('no_analytics_data') }}</td></tr>
+      {% endif %}
+    </table></div>
+  </div>
+
+  {% if chart_labels|length > 0 %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script>
+    const ctx = document.getElementById('trendChart');
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+    const textColor = isLight ? '#6b7280' : '#8b93a3';
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: {{ chart_labels|tojson }},
+        datasets: [
+          {
+            label: {{ t('stat_delivered')|tojson }},
+            data: {{ chart_sent|tojson }},
+            borderColor: '#53c48a',
+            backgroundColor: 'rgba(83,196,138,0.12)',
+            tension: 0.3,
+            fill: true,
+          },
+          {
+            label: {{ t('stat_failed')|tojson }},
+            data: {{ chart_failed|tojson }},
+            borderColor: '#e05263',
+            backgroundColor: 'rgba(224,82,99,0.08)',
+            tension: 0.3,
+            fill: true,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { labels: { color: textColor } }
+        },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: { ticks: { color: textColor }, grid: { color: gridColor }, beginAtZero: true }
+        }
+      }
+    });
+  </script>
+  {% endif %}
+{% endblock %}
