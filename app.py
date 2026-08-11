@@ -804,7 +804,8 @@ def delete_template(template_id):
 
 
 CAMPAIGN_FIELDS = ["id", "template_id", "template_name", "total_recipients", "sent", "failed",
-                    "status", "mode", "created_at", "scheduled_at", "city_filter", "days_filter"]
+                    "status", "mode", "created_at", "scheduled_at", "city_filter", "days_filter",
+                    "last_progress_at"]
 LOG_FIELDS = ["timestamp", "campaign_id", "phone", "status", "detail"]
 
 campaigns_lock = threading.Lock()
@@ -834,7 +835,11 @@ def save_campaigns(campaigns):
 
 
 def update_campaign_record(campaign_id, **fields):
-    """Thread-safe partial update of a single campaign's saved record."""
+    """Thread-safe partial update of a single campaign's saved record.
+    Any update that touches sent/failed counts also stamps a fresh
+    'last_progress_at' heartbeat, used to detect genuinely frozen sends."""
+    if "sent" in fields or "failed" in fields:
+        fields.setdefault("last_progress_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     with campaigns_lock:
         campaigns = load_campaigns()
         for c in campaigns:
@@ -856,12 +861,39 @@ def mark_stale_campaigns_interrupted():
     previous process died (restart, redeploy, crash) before finishing — there
     is no background thread actually running for it anymore, so it's honest
     to mark it interrupted rather than leave it looking like it's still going.
-    Scheduled campaigns are left untouched — the scheduler thread will pick
-    them up normally."""
+    Scheduled and queued campaigns are left untouched — the scheduler thread
+    picks them up normally."""
     campaigns = load_campaigns()
     changed = False
     for c in campaigns:
         if c.get("status") == "in_progress":
+            c["status"] = "interrupted"
+            changed = True
+    if changed:
+        save_campaigns(campaigns)
+
+
+def auto_release_frozen_campaigns():
+    """Safety net that runs continuously (every scheduler tick) alongside the
+    startup check. If a campaign is 'in_progress' but hasn't reported any
+    progress in a suspiciously long time (its background thread is likely
+    hung, not just sending slowly), it gets released automatically so the
+    queue can keep moving — without anyone needing to notice or click
+    anything."""
+    campaigns = load_campaigns()
+    changed = False
+    now = datetime.now()
+    for c in campaigns:
+        if c.get("status") != "in_progress":
+            continue
+        reference = c.get("last_progress_at") or c.get("created_at")
+        if not reference:
+            continue
+        try:
+            reference_dt = datetime.strptime(reference, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+        if (now - reference_dt).total_seconds() > config.STUCK_CAMPAIGN_TIMEOUT_SECONDS:
             c["status"] = "interrupted"
             changed = True
     if changed:
@@ -989,36 +1021,56 @@ def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds
     sent_count = 0
     failed_count = 0
 
-    for i, contact in enumerate(recipients, start=1):
-        message = personalize(template_body, contact)
+    try:
+        for i, contact in enumerate(recipients, start=1):
+            try:
+                message = personalize(template_body, contact)
+                phone = contact.get("phone", "")
+                if not phone:
+                    raise ValueError("contact missing phone number")
 
-        if mode == "live":
-            success, detail = send_sms_real(client, from_number, contact["phone"], message)
-        else:
-            success, detail = True, "simulated (Vonage not configured)"
+                if mode == "live":
+                    success, detail = send_sms_real(client, from_number, phone, message)
+                else:
+                    success, detail = True, "simulated (Vonage not configured)"
+            except Exception as e:
+                success, detail = False, f"unexpected error: {e}"
+                phone = contact.get("phone", "-") if isinstance(contact, dict) else "-"
 
-        if success:
-            sent_count += 1
-        else:
-            failed_count += 1
+            if success:
+                sent_count += 1
+            else:
+                failed_count += 1
 
-        append_send_log([{
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "campaign_id": campaign_id,
-            "phone": contact["phone"],
-            "status": "sent" if success else "failed",
-            "detail": detail,
-        }])
+            try:
+                append_send_log([{
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "campaign_id": campaign_id,
+                    "phone": phone,
+                    "status": "sent" if success else "failed",
+                    "detail": detail,
+                }])
+            except Exception:
+                pass  # never let a logging failure kill the whole send
 
-        if i % config.PROGRESS_SAVE_EVERY == 0 or i == len(recipients):
-            update_campaign_record(campaign_id, sent=sent_count, failed=failed_count)
+            if i % config.PROGRESS_SAVE_EVERY == 0 or i == len(recipients):
+                try:
+                    update_campaign_record(campaign_id, sent=sent_count, failed=failed_count)
+                except Exception:
+                    pass
 
         if i < len(recipients):
             # Real sends respect Vonage's rate limit. Simulation mode uses a
             # tiny delay just so progress is visible without waiting for real.
             time.sleep(1.0 / config.SEND_RATE_PER_SECOND if mode == "live" else 0.02)
-
-    update_campaign_record(campaign_id, sent=sent_count, failed=failed_count, status="completed")
+    finally:
+        # No matter what happens above — even a completely unexpected crash —
+        # the campaign must never be left stuck at "in_progress" forever,
+        # since that would block every future campaign from being created.
+        try:
+            update_campaign_record(campaign_id, sent=sent_count, failed=failed_count, status="completed")
+        except Exception:
+            pass
 
 
 def start_campaign_send(campaign_id, template_body, recipients, mode):
@@ -1030,6 +1082,24 @@ def start_campaign_send(campaign_id, template_body, recipients, mode):
         daemon=True,
     )
     thread.start()
+
+
+def launch_campaign_now(c):
+    """Given a campaign record that's ready to go (scheduled time arrived, or
+    its turn in the queue), recompute its audience fresh and start sending."""
+    all_templates = load_templates()
+    template = next((t for t in all_templates if t["id"] == c["template_id"]), None)
+    if not template:
+        update_campaign_record(c["id"], status="completed", sent=0, failed=0)
+        return
+
+    all_contacts = load_contacts()
+    active_contacts = [ct for ct in all_contacts if ct.get("opted_out") != "True"]
+    recipients = filter_recipients(active_contacts, c.get("city_filter", ""), c.get("days_filter", ""))
+
+    mode = "live" if vonage_is_configured() else "simulation"
+    update_campaign_record(c["id"], mode=mode, total_recipients=len(recipients))
+    start_campaign_send(c["id"], template["body"], recipients, mode)
 
 
 def process_due_scheduled_campaigns():
@@ -1049,27 +1119,45 @@ def process_due_scheduled_campaigns():
         save_campaigns(campaigns)
 
     for c in due:
-        all_templates = load_templates()
-        template = next((t for t in all_templates if t["id"] == c["template_id"]), None)
-        if not template:
-            update_campaign_record(c["id"], status="completed", sent=0, failed=0)
-            continue
+        launch_campaign_now(c)
 
-        all_contacts = load_contacts()
-        active_contacts = [ct for ct in all_contacts if ct.get("opted_out") != "True"]
-        recipients = filter_recipients(active_contacts, c.get("city_filter", ""), c.get("days_filter", ""))
 
-        mode = "live" if vonage_is_configured() else "simulation"
-        update_campaign_record(c["id"], mode=mode, total_recipients=len(recipients))
-        start_campaign_send(c["id"], template["body"], recipients, mode)
+def process_campaign_queue():
+    """If nothing is currently sending, start the oldest queued campaign
+    (one that was created while another send was active, so it waited its
+    turn instead of blocking the person from creating it in the first
+    place)."""
+    with campaigns_lock:
+        campaigns = load_campaigns()
+        if any(c.get("status") == "in_progress" for c in campaigns):
+            return  # something is already sending — wait for it to finish
+
+        queued = [c for c in campaigns if c.get("status") == "queued"]
+        if not queued:
+            return
+        next_up = sorted(queued, key=lambda c: int(c["id"]))[0]
+
+        for c in campaigns:
+            if c["id"] == next_up["id"]:
+                c["status"] = "in_progress"
+        save_campaigns(campaigns)
+
+    launch_campaign_now(next_up)
 
 
 def run_scheduler():
-    """Background loop (started once at app startup) that checks every 30s
-    for scheduled campaigns whose time has come, and launches them."""
+    """Background loop (started once at app startup, runs every 30s) that:
+    1. Launches scheduled campaigns whose time has come.
+    2. Auto-releases any campaign that's been frozen for too long, so it
+       never blocks everything else forever.
+    3. Promotes the next queued campaign once nothing else is sending —
+       this is what lets people create campaigns freely instead of being
+       blocked while one is already running."""
     while True:
         try:
+            auto_release_frozen_campaigns()
             process_due_scheduled_campaigns()
+            process_campaign_queue()
         except Exception:
             pass
         time.sleep(30)
@@ -1101,11 +1189,7 @@ def new_campaign():
     all_templates = load_templates()
     all_contacts = load_contacts()
     active_contacts = [c for c in all_contacts if c.get("opted_out") != "True"]
-
     in_progress = get_in_progress_campaign()
-    if in_progress:
-        flash("A campaign is already sending. Please wait for it to finish before starting another.", "warn")
-        return redirect(url_for("campaign_detail", campaign_id=in_progress["id"]))
 
     if request.method == "POST":
         template_id = request.form.get("template_id", "")
@@ -1163,6 +1247,12 @@ def new_campaign():
         vonage_ready = vonage_is_configured()
         mode = "live" if vonage_ready else "simulation"
 
+        # If something is already sending, this one waits its turn instead of
+        # being blocked outright — the background scheduler will start it
+        # automatically the moment the active send finishes (or is stopped).
+        should_queue = get_in_progress_campaign() is not None
+        initial_status = "queued" if should_queue else "in_progress"
+
         new_campaign_record = {
             "id": campaign_id,
             "template_id": template_id,
@@ -1170,7 +1260,7 @@ def new_campaign():
             "total_recipients": str(len(recipients)),
             "sent": "0",
             "failed": "0",
-            "status": "in_progress",
+            "status": initial_status,
             "mode": mode,
             "created_at": timestamp,
             "scheduled_at": "",
@@ -1180,14 +1270,20 @@ def new_campaign():
         campaigns.append(new_campaign_record)
         save_campaigns(campaigns)
 
-        start_campaign_send(campaign_id, target["body"], recipients, mode)
-
-        flash(
-            f"Campaign started for {len(recipients)} contacts. "
-            f"Estimated time: {estimate_send_duration(len(recipients))}. "
-            f"You can safely leave this page — progress is saved.",
-            "success",
-        )
+        if should_queue:
+            flash(
+                f"Another campaign is currently sending, so this one ({len(recipients)} contacts) "
+                f"has been queued and will start automatically as soon as it's free.",
+                "success",
+            )
+        else:
+            start_campaign_send(campaign_id, target["body"], recipients, mode)
+            flash(
+                f"Campaign started for {len(recipients)} contacts. "
+                f"Estimated time: {estimate_send_duration(len(recipients))}. "
+                f"You can safely leave this page — progress is saved.",
+                "success",
+            )
         return redirect(url_for("campaign_detail", campaign_id=campaign_id))
 
     return render_template(
@@ -1199,6 +1295,7 @@ def new_campaign():
         estimated_duration=estimate_send_duration(len(active_contacts)) if active_contacts else "",
         send_rate=config.SEND_RATE_PER_SECOND,
         cities_summary=get_cities_summary(all_contacts),
+        in_progress=in_progress,
     )
 
 
@@ -1246,11 +1343,39 @@ def campaign_status(campaign_id):
 def cancel_campaign(campaign_id):
     campaigns = load_campaigns()
     target = next((c for c in campaigns if c["id"] == campaign_id), None)
-    if not target or target.get("status") != "scheduled":
-        flash("Only scheduled campaigns can be cancelled.", "error")
+    if not target or target.get("status") not in ("scheduled", "queued", "in_progress"):
+        flash("Only scheduled, queued, or in-progress campaigns can be cancelled.", "error")
         return redirect(url_for("campaigns_page"))
-    update_campaign_record(campaign_id, status="cancelled")
-    flash("Scheduled campaign cancelled.", "success")
+
+    if target.get("status") in ("scheduled", "queued"):
+        update_campaign_record(campaign_id, status="cancelled")
+        flash("Campaign cancelled.", "success")
+    else:
+        # Manually stopping a genuinely stuck/running campaign. Its background
+        # thread (if still alive) will simply overwrite this on its next
+        # progress save — that's fine, this is meant as a manual unstick
+        # tool for campaigns that appear frozen.
+        update_campaign_record(campaign_id, status="interrupted")
+        flash("Campaign stopped and marked as interrupted.", "success")
+
+    return redirect(url_for("campaigns_page"))
+
+
+@app.route("/campaigns/<campaign_id>/delete", methods=["POST"])
+def delete_campaign(campaign_id):
+    campaigns = load_campaigns()
+    target = next((c for c in campaigns if c["id"] == campaign_id), None)
+    if not target:
+        flash("Campaign not found.", "error")
+        return redirect(url_for("campaigns_page"))
+
+    if target.get("status") == "in_progress":
+        flash("Cannot delete a campaign that is currently sending. Cancel it first.", "error")
+        return redirect(url_for("campaigns_page"))
+
+    remaining = [c for c in campaigns if c["id"] != campaign_id]
+    save_campaigns(remaining)
+    flash("Campaign deleted.", "success")
     return redirect(url_for("campaigns_page"))
 
 

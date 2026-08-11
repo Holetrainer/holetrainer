@@ -16,6 +16,10 @@
   <div class="flash warn">{{ t('vonage_not_configured_new')|safe }}</div>
   {% endif %}
 
+  {% if in_progress %}
+  <div class="flash pend">{{ t('active_send_notice', name=in_progress.template_name) }}</div>
+  {% endif %}
+
   {% if templates|length == 0 %}
   <div class="panel">
     <p class="empty-row">{{ t('need_template_msg') }} <a href="{{ url_for('new_template') }}" class="action-link">{{ t('create_one_now') }}</a>.</p>

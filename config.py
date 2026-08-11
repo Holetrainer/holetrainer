@@ -29,3 +29,10 @@ SEND_RATE_PER_SECOND = 1
 # disk while a send is running in the background. Smaller = more frequent
 # UI updates but more disk writes.
 PROGRESS_SAVE_EVERY = 10
+
+# If a campaign shows no send progress for this many seconds while still
+# marked "in_progress", it's treated as frozen and automatically released
+# so the queue can keep moving. A healthy send updates progress every few
+# seconds (see PROGRESS_SAVE_EVERY), so 5 minutes of total silence is a
+# generous margin that only trips for genuinely stuck sends.
+STUCK_CAMPAIGN_TIMEOUT_SECONDS = 300

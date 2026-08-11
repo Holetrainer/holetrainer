@@ -22,14 +22,15 @@
 
   <div class="panel">
     <div class="table-scroll"><table>
-      <tr><th>{{ t('th_template') }}</th><th>{{ t('th_status') }}</th><th>{{ t('th_recipients') }}</th><th>{{ t('th_sent') }}</th><th>{{ t('th_failed') }}</th><th>{{ t('th_mode') }}</th><th>{{ t('th_date') }}</th><th></th></tr>
+      <tr><th>{{ t('th_template') }}</th><th>{{ t('th_status') }}</th><th>{{ t('th_recipients') }}</th><th>{{ t('th_sent') }}</th><th>{{ t('th_failed') }}</th><th>{{ t('th_mode') }}</th><th>{{ t('th_date') }}</th><th>{{ t('th_actions') }}</th></tr>
       {% for c in campaigns %}
       <tr>
         <td>{{ c.template_name }}</td>
         <td>
-          <span class="badge {{ 'pend' if c.status in ['in_progress', 'scheduled'] else ('fail' if c.status in ['interrupted', 'cancelled'] else 'ok') }}">
+          <span class="badge {{ 'pend' if c.status in ['in_progress', 'scheduled', 'queued'] else ('fail' if c.status in ['interrupted', 'cancelled'] else 'ok') }}">
             {% if c.status == 'in_progress' %}{{ t('status_sending') }}
             {% elif c.status == 'scheduled' %}{{ t('status_scheduled') }}
+            {% elif c.status == 'queued' %}{{ t('status_queued') }}
             {% elif c.status == 'interrupted' %}{{ t('status_interrupted') }}
             {% elif c.status == 'cancelled' %}{{ t('status_cancelled') }}
             {% else %}{{ t('status_completed') }}{% endif %}
@@ -40,7 +41,18 @@
         <td><span class="badge {{ 'fail' if c.failed|int > 0 else 'ok' }}">{{ c.failed }}</span></td>
         <td><span class="badge {{ 'pend' if c.mode == 'simulation' else 'ok' }}">{{ c.mode }}</span></td>
         <td>{{ c.created_at }}</td>
-        <td><a href="{{ url_for('campaign_detail', campaign_id=c.id) }}" class="action-link">{{ t('view') }}</a></td>
+        <td class="actions-cell">
+          <a href="{{ url_for('campaign_detail', campaign_id=c.id) }}" class="action-link">{{ t('view') }}</a>
+          {% if c.status in ['scheduled', 'queued', 'in_progress'] %}
+          <form action="{{ url_for('cancel_campaign', campaign_id=c.id) }}" method="post" class="inline-form" data-confirm="{{ t('stop_campaign_confirm') }}">
+            <button type="submit" class="action-link danger">{{ t('stop_btn') }}</button>
+          </form>
+          {% else %}
+          <form action="{{ url_for('delete_campaign', campaign_id=c.id) }}" method="post" class="inline-form" data-confirm="{{ t('delete_campaign_confirm') }}">
+            <button type="submit" class="action-link danger">{{ t('delete') }}</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
       {% if not campaigns %}

@@ -5,10 +5,11 @@
   <p class="subtitle">
     {{ t('campaign_detail_subtitle', id=campaign.id, date=campaign.created_at) }}
     · <span class="badge {{ 'pend' if campaign.mode == 'simulation' else 'ok' }}">{{ campaign.mode }}</span>
-    · <span class="badge {{ 'pend' if campaign.status in ['in_progress', 'scheduled'] else ('fail' if campaign.status in ['interrupted', 'cancelled'] else 'ok') }}" id="statusBadge">
+    · <span class="badge {{ 'pend' if campaign.status in ['in_progress', 'scheduled', 'queued'] else ('fail' if campaign.status in ['interrupted', 'cancelled'] else 'ok') }}" id="statusBadge">
         {% if campaign.status == 'in_progress' %}{{ t('status_sending') }}
         {% elif campaign.status == 'interrupted' %}{{ t('status_interrupted') }}
         {% elif campaign.status == 'scheduled' %}{{ t('status_scheduled') }}
+        {% elif campaign.status == 'queued' %}{{ t('status_queued') }}
         {% elif campaign.status == 'cancelled' %}{{ t('status_cancelled') }}
         {% else %}{{ t('status_completed') }}{% endif %}
       </span>
@@ -24,8 +25,16 @@
 
   {% if campaign.status == 'in_progress' %}
   <div class="flash pend">{{ t('sending_in_progress_note') }}</div>
+  <form action="{{ url_for('cancel_campaign', campaign_id=campaign.id) }}" method="post" data-confirm="{{ t('stop_campaign_confirm') }}">
+    <button type="submit" class="action-link danger">{{ t('stop_btn') }}</button>
+  </form>
   {% elif campaign.status == 'interrupted' %}
   <div class="flash error">{{ t('interrupted_note') }}</div>
+  {% elif campaign.status == 'queued' %}
+  <div class="flash pend">{{ t('queued_note') }}</div>
+  <form action="{{ url_for('cancel_campaign', campaign_id=campaign.id) }}" method="post" data-confirm="{{ t('cancel_schedule_confirm') }}">
+    <button type="submit" class="action-link danger">{{ t('cancel_schedule_btn') }}</button>
+  </form>
   {% elif campaign.status == 'scheduled' %}
   <div class="flash pend">{{ t('scheduled_note', date=campaign.scheduled_at) }}</div>
   {% if campaign.city_filter or campaign.days_filter %}
@@ -96,6 +105,11 @@
 
   <div class="button-row">
     <a href="{{ url_for('campaigns_page') }}" class="button-link">{{ t('back_to_campaigns') }}</a>
+    {% if campaign.status not in ['in_progress', 'queued'] %}
+    <form action="{{ url_for('delete_campaign', campaign_id=campaign.id) }}" method="post" data-confirm="{{ t('delete_campaign_confirm') }}">
+      <button type="submit" class="button-link" style="color:var(--danger); border-color:var(--danger);">{{ t('delete') }}</button>
+    </form>
+    {% endif %}
   </div>
 
   {% if campaign.status == 'in_progress' %}
