@@ -1,6 +1,7 @@
 TRANSLATIONS = {
     "en": {
-        "brand": "HOLETRAINER",
+        "brand": "HotMedia Messenger",
+        "brand_sub": "Holetrainer",
         "nav_dashboard": "Dashboard",
         "nav_contacts": "Contacts",
         "nav_templates": "Templates",
@@ -238,7 +239,8 @@ TRANSLATIONS = {
         "no_cities_detected": "No cities detected yet — cities are inferred automatically from phone area codes when you import contacts.",
     },
     "es": {
-        "brand": "HOLETRAINER",
+        "brand": "HotMedia Messenger",
+        "brand_sub": "Holetrainer",
         "nav_dashboard": "Inicio",
         "nav_contacts": "Contactos",
         "nav_templates": "Plantillas",

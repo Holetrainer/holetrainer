@@ -42,6 +42,7 @@ body{
   top:0;
   z-index:31;
 }
+.topbar-brand-group{display:flex; flex-direction:column; line-height:1.2;}
 .topbar-brand{font-size:14px; font-weight:700; color:var(--accent); letter-spacing:0.03em;}
 .menu-toggle{
   background:none;
@@ -143,8 +144,9 @@ body{
   padding:0 18px 18px;
 }
 .brand-icon{
-  width:26px;
+  min-width:30px;
   height:26px;
+  padding:0 6px;
   flex-shrink:0;
   display:flex;
   align-items:center;
@@ -152,14 +154,30 @@ body{
   background:var(--accent-dim);
   color:#0d1117;
   font-weight:800;
-  font-size:13px;
+  font-size:11px;
+  letter-spacing:0.02em;
   border-radius:6px;
 }
+.brand-text-group{
+  display:flex;
+  flex-direction:column;
+  line-height:1.25;
+  min-width:0;
+}
 .brand{
-  font-size:14px;
+  font-size:12px;
   font-weight:700;
   color:var(--accent);
-  letter-spacing:0.03em;
+  letter-spacing:0.01em;
+  line-height:1.3;
+}
+.brand-sub{
+  font-size:10px;
+  font-weight:600;
+  color:var(--warn);
+  opacity:0.85;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
 }
 .nav-item{
   display:flex;
@@ -503,7 +521,7 @@ button.primary{
 
   .sidebar{
     position:fixed;
-    top:0;
+    top:53px;
     left:0;
     bottom:0;
     width:260px;
@@ -512,7 +530,7 @@ button.primary{
     transition:transform 0.32s cubic-bezier(0.32,0.72,0,1);
     z-index:30;
     overflow-y:auto;
-    min-height:100vh;
+    min-height:calc(100vh - 53px);
     box-shadow:none;
   }
   .sidebar.open{
@@ -520,9 +538,7 @@ button.primary{
     box-shadow:8px 0 24px rgba(0,0,0,0.35);
   }
   .sidebar-brand-header{
-    padding:4px 18px 18px;
-    border-bottom:1px solid var(--border2);
-    margin-bottom:8px;
+    display:none;
   }
   .sidebar-controls{margin-top:auto;}
 
@@ -586,7 +602,25 @@ button.primary{
   /* Bigger touch targets */
   .nav-item{padding:13px 18px; font-size:14px;}
   .action-link{font-size:12px; padding:4px 0;}
-  button, .text-input, .search-input{font-size:14px;}
+  button{font-size:14px;}
+
+  /* iOS Safari auto-zooms into any input/textarea/select with a font-size
+     under 16px, which causes the whole page to visibly jump/float sideways
+     when tapping a field. Forcing 16px here prevents that entirely. */
+  .text-input,
+  .search-input,
+  .textarea-input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="file"],
+  textarea,
+  select{
+    font-size:16px;
+  }
 }
 
 @media (max-width: 420px) {

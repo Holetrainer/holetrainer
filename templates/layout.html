@@ -20,15 +20,21 @@
     <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
-    <span class="topbar-brand">{{ t('brand') }}</span>
+    <span class="topbar-brand-group">
+      <span class="topbar-brand">{{ t('brand') }}</span>
+      <span class="brand-sub">{{ t('brand_sub') }}</span>
+    </span>
   </header>
 
   <div class="shell">
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-brand-header">
-        <span class="brand-icon">H</span>
-        <span class="brand">{{ t('brand') }}</span>
+        <span class="brand-icon">JP</span>
+        <span class="brand-text-group">
+          <span class="brand">{{ t('brand') }}</span>
+          <span class="brand-sub">{{ t('brand_sub') }}</span>
+        </span>
       </div>
       <nav>
         <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
