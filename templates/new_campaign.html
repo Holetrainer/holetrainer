@@ -46,12 +46,10 @@
 
       <div class="form-group">
         <label class="field-label">{{ t('city_filter_label') }}</label>
-        <input type="text" name="city_filter" id="cityFilter" class="text-input" placeholder="{{ t('city_filter_placeholder') }}" list="campaignCityDatalist">
-        <datalist id="campaignCityDatalist">
-          {% for city, count in cities_summary %}
-          <option value="{{ city }}">
-          {% endfor %}
-        </datalist>
+        <div class="autocomplete-wrapper">
+          <input type="text" name="city_filter" id="cityFilter" class="text-input" placeholder="{{ t('city_filter_placeholder') }}" autocomplete="off">
+          <div class="autocomplete-dropdown" id="cityFilterDropdown"></div>
+        </div>
       </div>
 
       <div class="form-group">
@@ -140,6 +138,40 @@
     const vonageReady = {{ 'true' if vonage_ready else 'false' }};
     let currentAudienceCount = {{ active_contacts_count }};
     let debounceTimer;
+
+    // Custom autocomplete dropdown — works reliably on mobile, unlike the
+    // native <datalist> element which many mobile browsers barely support.
+    const allCities = {{ cities_summary|map(attribute=0)|list|tojson }};
+    setupCityAutocomplete(cityFilter, document.getElementById('cityFilterDropdown'), allCities);
+
+    function setupCityAutocomplete(input, dropdown, cities) {
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        if (!q) { dropdown.style.display = 'none'; return; }
+        const matches = cities.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+        if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = '';
+        matches.forEach(city => {
+          const item = document.createElement('div');
+          item.className = 'autocomplete-item';
+          item.textContent = city;
+          item.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            input.value = city;
+            dropdown.style.display = 'none';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+          dropdown.appendChild(item);
+        });
+        dropdown.style.display = 'block';
+      });
+      input.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+      });
+      input.addEventListener('focus', () => {
+        if (input.value.trim()) input.dispatchEvent(new Event('input'));
+      });
+    }
 
     function updateAudiencePreview() {
       clearTimeout(debounceTimer);

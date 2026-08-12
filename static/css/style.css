@@ -272,6 +272,24 @@ th{
   font-size:10px;
 }
 td{padding:7px 8px; border-bottom:1px solid #2a2d36;}
+.compact-table td{padding:4px 8px; font-size:12px;}
+.compact-table th{padding:5px 8px;}
+.contact-list-toggle{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:none;
+  border:none;
+  padding:0;
+  cursor:pointer;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:var(--accent);
+  font-weight:600;
+}
+.contact-list-toggle:hover{opacity:0.85;}
 .badge{font-size:10px; padding:2px 8px; border-radius:10px; font-weight:600;}
 .badge.ok{background:rgba(83,196,138,0.15); color:#53c48a;}
 .badge.fail{background:rgba(224,82,99,0.15); color:var(--danger);}
@@ -751,5 +769,35 @@ button.primary{
 .timing-option.active{
   background:rgba(79,209,197,0.12);
   border-color:var(--accent);
+  color:var(--accent);
+}
+
+/* ============ CUSTOM AUTOCOMPLETE (mobile-friendly, replaces datalist) ============ */
+.autocomplete-wrapper{
+  position:relative;
+}
+.autocomplete-dropdown{
+  display:none;
+  position:absolute;
+  top:calc(100% + 4px);
+  left:0;
+  right:0;
+  background:var(--bg-panel);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  max-height:220px;
+  overflow-y:auto;
+  z-index:25;
+  box-shadow:0 8px 20px rgba(0,0,0,0.25);
+}
+.autocomplete-item{
+  padding:10px 12px;
+  font-size:14px;
+  color:var(--text);
+  cursor:pointer;
+}
+.autocomplete-item:hover,
+.autocomplete-item:active{
+  background:var(--bg-field);
   color:var(--accent);
 }
