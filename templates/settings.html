@@ -97,4 +97,14 @@
     <div class="panel-title">{{ t('message_limits') }}</div>
     <p class="hint" style="margin:0;">{{ t('message_limits_text', max=max_chars, segments=(max_chars / 153) | round(0, 'ceil') | int) }}</p>
   </div>
+
+  <div class="panel" style="margin-top:14px;">
+    <div class="panel-title">{{ t('backup_title') }}</div>
+    <p class="hint">{{ t('backup_desc') }}</p>
+    <div class="button-row" style="justify-content:flex-start; gap:10px;">
+      <a href="{{ url_for('export_contacts') }}" class="button-link">{{ t('backup_contacts_btn') }}</a>
+      <a href="{{ url_for('export_templates') }}" class="button-link">{{ t('backup_templates_btn') }}</a>
+      <a href="{{ url_for('export_campaigns') }}" class="button-link">{{ t('backup_campaigns_btn') }}</a>
+    </div>
+  </div>
 {% endblock %}

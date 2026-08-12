@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 import config
 import os
 import csv
+import io
 import re
 import json
 import threading
@@ -1497,6 +1498,42 @@ def mask_secret(value):
     if len(value) <= 4:
         return "*" * len(value)
     return "*" * (len(value) - 4) + value[-4:]
+
+
+@app.route("/export/contacts")
+def export_contacts():
+    all_contacts = load_contacts()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=CONTACT_FIELDS)
+    writer.writeheader()
+    writer.writerows(all_contacts)
+    mem = io.BytesIO(output.getvalue().encode("utf-8"))
+    filename = f"contacts_backup_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    return send_file(mem, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@app.route("/export/templates")
+def export_templates():
+    all_templates = load_templates()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=TEMPLATE_FIELDS)
+    writer.writeheader()
+    writer.writerows(all_templates)
+    mem = io.BytesIO(output.getvalue().encode("utf-8"))
+    filename = f"templates_backup_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    return send_file(mem, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@app.route("/export/campaigns")
+def export_campaigns():
+    all_campaigns = load_campaigns()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=CAMPAIGN_FIELDS)
+    writer.writeheader()
+    writer.writerows(all_campaigns)
+    mem = io.BytesIO(output.getvalue().encode("utf-8"))
+    filename = f"campaigns_backup_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    return send_file(mem, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
 @app.route("/settings", methods=["GET", "POST"])

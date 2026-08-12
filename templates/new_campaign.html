@@ -72,8 +72,18 @@
 
       <div class="panel-title" style="margin-top:4px;">{{ t('schedule_section_title') }}</div>
       <div class="form-group">
+        <div class="send-timing-toggle">
+          <button type="button" id="sendNowBtn" class="timing-option active">{{ t('send_timing_now') }}</button>
+          <button type="button" id="scheduleLaterBtn" class="timing-option">{{ t('send_timing_later') }}</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="scheduleFieldGroup" style="display:none;">
         <label class="field-label">{{ t('schedule_label') }}</label>
-        <input type="datetime-local" name="scheduled_at" id="scheduledAt" class="text-input">
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <input type="datetime-local" name="scheduled_at" id="scheduledAt" class="text-input" style="flex:1;">
+          <button type="button" id="clearScheduleBtn" class="button-link" style="white-space:nowrap;">{{ t('schedule_clear_btn') }}</button>
+        </div>
         <p class="hint" style="margin-top:4px;">{{ t('schedule_hint') }}</p>
       </div>
 
@@ -96,6 +106,31 @@
         preview.textContent = opt.dataset.body || '';
       });
     }
+
+    // Send now / Schedule for later toggle
+    const sendNowBtn = document.getElementById('sendNowBtn');
+    const scheduleLaterBtn = document.getElementById('scheduleLaterBtn');
+    const scheduleFieldGroup = document.getElementById('scheduleFieldGroup');
+    const scheduledAtInput = document.getElementById('scheduledAt');
+    const clearScheduleBtn = document.getElementById('clearScheduleBtn');
+    const sendBtn = document.getElementById('sendBtn');
+
+    function setSendNow() {
+      sendNowBtn.classList.add('active');
+      scheduleLaterBtn.classList.remove('active');
+      scheduleFieldGroup.style.display = 'none';
+      scheduledAtInput.value = '';
+      sendBtn.textContent = {{ (t('send_campaign_btn') if vonage_ready else t('run_simulation_btn'))|tojson }};
+    }
+    function setScheduleLater() {
+      sendNowBtn.classList.remove('active');
+      scheduleLaterBtn.classList.add('active');
+      scheduleFieldGroup.style.display = '';
+      sendBtn.textContent = {{ t('schedule_campaign_btn')|tojson }};
+    }
+    sendNowBtn.addEventListener('click', setSendNow);
+    scheduleLaterBtn.addEventListener('click', setScheduleLater);
+    clearScheduleBtn.addEventListener('click', setSendNow);
 
     const cityFilter = document.getElementById('cityFilter');
     const daysFilter = document.getElementById('daysFilter');
@@ -131,7 +166,7 @@
     daysFilter.addEventListener('input', updateAudiencePreview);
 
     function confirmSend() {
-      const scheduledAt = document.getElementById('scheduledAt').value;
+      const scheduledAt = scheduledAtInput.value;
       if (scheduledAt) {
         return confirm({{ t('confirm_schedule', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount));
       }

@@ -729,3 +729,27 @@ button.primary{
   color:var(--text-dim);
   white-space:nowrap;
 }
+
+/* ============ SEND TIMING TOGGLE ============ */
+.send-timing-toggle{
+  display:flex;
+  gap:8px;
+}
+.timing-option{
+  flex:1;
+  padding:10px;
+  background:var(--bg-field);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  color:var(--text-dim);
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.timing-option:hover{border-color:var(--accent);}
+.timing-option.active{
+  background:rgba(79,209,197,0.12);
+  border-color:var(--accent);
+  color:var(--accent);
+}
