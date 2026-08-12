@@ -12,17 +12,17 @@
   --border2:#33374a;
 }
 :root[data-theme="light"]{
-  --bg-shell:#f4f5f7;
-  --bg-sidebar:#ffffff;
-  --bg-panel:#ffffff;
-  --bg-field:#f0f1f4;
-  --accent:#0f9c8f;
-  --accent-dim:#0f9c8f;
+  --bg-shell:#d9cdae;
+  --bg-sidebar:#e3d8bc;
+  --bg-panel:#e3d8bc;
+  --bg-field:#cec2a1;
+  --accent:#0aa696;
+  --accent-dim:#078577;
   --text:#1c1e24;
-  --text-dim:#6b7280;
-  --danger:#d1435a;
-  --warn:#b8860b;
-  --border2:#e0e2e8;
+  --text-dim:#6b5f4d;
+  --danger:#dd3f5c;
+  --warn:#c4820a;
+  --border2:#bcae87;
 }
 *{box-sizing:border-box;}
 body{
