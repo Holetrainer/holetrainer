@@ -3,6 +3,7 @@
   --bg-sidebar:#15171c;
   --bg-panel:#1c1e24;
   --bg-field:#181a20;
+  --bg-input:#181a20;
   --accent:#4fd1c5;
   --accent-dim:#2f9c91;
   --text:#e6e9ef;
@@ -16,6 +17,7 @@
   --bg-sidebar:#e3d8bc;
   --bg-panel:#e3d8bc;
   --bg-field:#cec2a1;
+  --bg-input:#ffffff;
   --accent:#0aa696;
   --accent-dim:#078577;
   --text:#1c1e24;
@@ -335,7 +337,7 @@ button.primary{
 .search-row{margin-bottom:12px;}
 .search-input{
   width:100%;
-  background:var(--bg-field);
+  background:var(--bg-input);
   border:1px solid var(--border2);
   border-radius:4px;
   padding:8px 10px;
@@ -353,7 +355,7 @@ button.primary{
 }
 .text-input{
   width:100%;
-  background:var(--bg-field);
+  background:var(--bg-input);
   border:1px solid var(--border2);
   border-radius:4px;
   padding:8px 10px;
@@ -504,7 +506,7 @@ button.primary{
 .tpl-card-actions{display:flex; gap:12px;}
 .textarea-input{
   width:100%;
-  background:var(--bg-field);
+  background:var(--bg-input);
   border:1px solid var(--border2);
   border-radius:4px;
   padding:10px;

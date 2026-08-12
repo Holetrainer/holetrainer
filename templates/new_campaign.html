@@ -20,6 +20,42 @@
   <div class="flash pend">{{ t('active_send_notice', name=in_progress.template_name) }}</div>
   {% endif %}
 
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('ai_section_title') }}</div>
+    {% if ai_ready %}
+    <div class="form-group">
+      <textarea id="campaignAiPrompt" class="textarea-input" style="min-height:60px;" placeholder="{{ t('ai_prompt_placeholder') }}"></textarea>
+    </div>
+    <div class="button-row" style="justify-content:flex-start;">
+      <button type="button" id="campaignAiGenerateBtn">{{ t('ai_generate_btn') }}</button>
+    </div>
+    <p class="hint" id="campaignAiError" style="display:none; color:var(--danger);"></p>
+
+    <div id="campaignAiResult" style="display:none; margin-top:14px;">
+      <div class="form-group">
+        <label class="field-label">{{ t('template_name_label') }}</label>
+        <input type="text" id="campaignAiTplName" class="text-input" placeholder="{{ t('template_name_placeholder') }}">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('message_label') }}</label>
+        <textarea id="campaignAiTplBody" class="textarea-input" maxlength="{{ max_chars }}"></textarea>
+        <div class="counter-row">
+          <span id="campaignAiCharCount">0</span>/{{ max_chars }} {{ t('characters_word') }}
+        </div>
+      </div>
+      <div class="button-row" style="justify-content:flex-start;">
+        <button type="button" id="campaignAiSaveBtn" class="primary">{{ t('ai_save_use_btn') }}</button>
+      </div>
+      <p class="hint" id="campaignAiSaveError" style="display:none; color:var(--danger);"></p>
+    </div>
+    {% else %}
+    <p class="hint" style="margin:0;">
+      {{ t('ai_error_not_configured') }}
+      <a href="{{ url_for('settings_page') }}" class="action-link">{{ t('ai_configure_hint') }}</a>
+    </p>
+    {% endif %}
+  </div>
+
   {% if templates|length == 0 %}
   <div class="panel">
     <p class="empty-row">{{ t('need_template_msg') }} <a href="{{ url_for('new_template') }}" class="action-link">{{ t('create_one_now') }}</a>.</p>
@@ -105,107 +141,234 @@
       });
     }
 
-    // Send now / Schedule for later toggle
-    const sendNowBtn = document.getElementById('sendNowBtn');
-    const scheduleLaterBtn = document.getElementById('scheduleLaterBtn');
-    const scheduleFieldGroup = document.getElementById('scheduleFieldGroup');
-    const scheduledAtInput = document.getElementById('scheduledAt');
-    const clearScheduleBtn = document.getElementById('clearScheduleBtn');
-    const sendBtn = document.getElementById('sendBtn');
+    // Everything below only exists once at least one template is available
+    // (the campaign form itself isn't rendered otherwise) — guard the whole
+    // block so the page doesn't crash and stop the AI section's own script
+    // (further down) from running when there are zero templates yet.
+    const campaignForm = document.getElementById('campaignForm');
+    if (campaignForm) {
+      // Send now / Schedule for later toggle
+      const sendNowBtn = document.getElementById('sendNowBtn');
+      const scheduleLaterBtn = document.getElementById('scheduleLaterBtn');
+      const scheduleFieldGroup = document.getElementById('scheduleFieldGroup');
+      const scheduledAtInput = document.getElementById('scheduledAt');
+      const clearScheduleBtn = document.getElementById('clearScheduleBtn');
+      const sendBtn = document.getElementById('sendBtn');
 
-    function setSendNow() {
-      sendNowBtn.classList.add('active');
-      scheduleLaterBtn.classList.remove('active');
-      scheduleFieldGroup.style.display = 'none';
-      scheduledAtInput.value = '';
-      sendBtn.textContent = {{ (t('send_campaign_btn') if vonage_ready else t('run_simulation_btn'))|tojson }};
-    }
-    function setScheduleLater() {
-      sendNowBtn.classList.remove('active');
-      scheduleLaterBtn.classList.add('active');
-      scheduleFieldGroup.style.display = '';
-      sendBtn.textContent = {{ t('schedule_campaign_btn')|tojson }};
-    }
-    sendNowBtn.addEventListener('click', setSendNow);
-    scheduleLaterBtn.addEventListener('click', setScheduleLater);
-    clearScheduleBtn.addEventListener('click', setSendNow);
+      const setSendNow = () => {
+        sendNowBtn.classList.add('active');
+        scheduleLaterBtn.classList.remove('active');
+        scheduleFieldGroup.style.display = 'none';
+        scheduledAtInput.value = '';
+        sendBtn.textContent = {{ (t('send_campaign_btn') if vonage_ready else t('run_simulation_btn'))|tojson }};
+      };
+      const setScheduleLater = () => {
+        sendNowBtn.classList.remove('active');
+        scheduleLaterBtn.classList.add('active');
+        scheduleFieldGroup.style.display = '';
+        sendBtn.textContent = {{ t('schedule_campaign_btn')|tojson }};
+      };
+      sendNowBtn.addEventListener('click', setSendNow);
+      scheduleLaterBtn.addEventListener('click', setScheduleLater);
+      clearScheduleBtn.addEventListener('click', setSendNow);
 
-    const cityFilter = document.getElementById('cityFilter');
-    const daysFilter = document.getElementById('daysFilter');
-    const audienceCount = document.getElementById('audienceCount');
-    const estimatedTimeGroup = document.getElementById('estimatedTimeGroup');
-    const estimatedTime = document.getElementById('estimatedTime');
-    const vonageReady = {{ 'true' if vonage_ready else 'false' }};
-    let currentAudienceCount = {{ active_contacts_count }};
-    let debounceTimer;
+      const cityFilter = document.getElementById('cityFilter');
+      const daysFilter = document.getElementById('daysFilter');
+      const audienceCount = document.getElementById('audienceCount');
+      const estimatedTimeGroup = document.getElementById('estimatedTimeGroup');
+      const estimatedTime = document.getElementById('estimatedTime');
+      const vonageReady = {{ 'true' if vonage_ready else 'false' }};
+      let currentAudienceCount = {{ active_contacts_count }};
+      let debounceTimer;
 
-    // Custom autocomplete dropdown — works reliably on mobile, unlike the
-    // native <datalist> element which many mobile browsers barely support.
-    const allCities = {{ cities_summary|map(attribute=0)|list|tojson }};
-    setupCityAutocomplete(cityFilter, document.getElementById('cityFilterDropdown'), allCities);
+      // Custom autocomplete dropdown — works reliably on mobile, unlike the
+      // native <datalist> element which many mobile browsers barely support.
+      const allCities = {{ cities_summary|map(attribute=0)|list|tojson }};
 
-    function setupCityAutocomplete(input, dropdown, cities) {
-      input.addEventListener('input', () => {
-        const q = input.value.trim().toLowerCase();
-        if (!q) { dropdown.style.display = 'none'; return; }
-        const matches = cities.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
-        if (matches.length === 0) { dropdown.style.display = 'none'; return; }
-        dropdown.innerHTML = '';
-        matches.forEach(city => {
-          const item = document.createElement('div');
-          item.className = 'autocomplete-item';
-          item.textContent = city;
-          item.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            input.value = city;
-            dropdown.style.display = 'none';
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+      const setupCityAutocomplete = (input, dropdown, cities) => {
+        input.addEventListener('input', () => {
+          const q = input.value.trim().toLowerCase();
+          if (!q) { dropdown.style.display = 'none'; return; }
+          const matches = cities.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+          if (matches.length === 0) { dropdown.style.display = 'none'; return; }
+          dropdown.innerHTML = '';
+          matches.forEach(city => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.textContent = city;
+            item.addEventListener('mousedown', (e) => {
+              e.preventDefault();
+              input.value = city;
+              dropdown.style.display = 'none';
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            dropdown.appendChild(item);
           });
-          dropdown.appendChild(item);
+          dropdown.style.display = 'block';
         });
-        dropdown.style.display = 'block';
-      });
-      input.addEventListener('blur', () => {
-        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
-      });
-      input.addEventListener('focus', () => {
-        if (input.value.trim()) input.dispatchEvent(new Event('input'));
-      });
+        input.addEventListener('blur', () => {
+          setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+        });
+        input.addEventListener('focus', () => {
+          if (input.value.trim()) input.dispatchEvent(new Event('input'));
+        });
+      };
+      setupCityAutocomplete(cityFilter, document.getElementById('cityFilterDropdown'), allCities);
+
+      const updateAudiencePreview = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          try {
+            const resp = await fetch('{{ url_for("preview_audience") }}', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({city: cityFilter.value, days: daysFilter.value}),
+            });
+            const data = await resp.json();
+            currentAudienceCount = data.count;
+            audienceCount.textContent = {{ t('recipients_text', count='__COUNT__')|tojson }}.replace('__COUNT__', data.count);
+            if (vonageReady && data.count > 0) {
+              estimatedTimeGroup.style.display = '';
+              estimatedTime.textContent = {{ t('estimated_time_text', time='__TIME__', rate=send_rate)|tojson }}.replace('__TIME__', data.estimated_time);
+            } else {
+              estimatedTimeGroup.style.display = 'none';
+            }
+          } catch (e) { /* ignore, keep last known count */ }
+        }, 400);
+      };
+      cityFilter.addEventListener('input', updateAudiencePreview);
+      daysFilter.addEventListener('input', updateAudiencePreview);
+
+      window.confirmSend = () => {
+        const scheduledAt = scheduledAtInput.value;
+        if (scheduledAt) {
+          return confirm({{ t('confirm_schedule', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount));
+        }
+        const msg = vonageReady
+          ? {{ t('confirm_send_live', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount)
+          : {{ t('confirm_send_sim', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount);
+        return confirm(msg);
+      };
     }
 
-    function updateAudiencePreview() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(async () => {
+    // Generate a message with AI, then save it as a real template and use
+    // it for this campaign right away — without leaving the page.
+    const campaignAiBtn = document.getElementById('campaignAiGenerateBtn');
+    if (campaignAiBtn) {
+      const aiPrompt = document.getElementById('campaignAiPrompt');
+      const aiError = document.getElementById('campaignAiError');
+      const aiResult = document.getElementById('campaignAiResult');
+      const aiTplName = document.getElementById('campaignAiTplName');
+      const aiTplBody = document.getElementById('campaignAiTplBody');
+      const aiCharCount = document.getElementById('campaignAiCharCount');
+      const aiSaveBtn = document.getElementById('campaignAiSaveBtn');
+      const aiSaveError = document.getElementById('campaignAiSaveError');
+      const maxChars = {{ max_chars }};
+
+      const errorMessages = {
+        not_configured: {{ t('ai_error_not_configured')|tojson }},
+        invalid_key: {{ t('ai_error_invalid_key')|tojson }},
+        timeout: {{ t('ai_error_timeout')|tojson }},
+        empty_prompt: {{ t('ai_error_empty_prompt')|tojson }},
+        missing_name: {{ t('ai_error_missing_name')|tojson }},
+        too_long: {{ t('ai_error_generic')|tojson }},
+      };
+      const genericError = {{ t('ai_error_generic')|tojson }};
+      const generatingLabel = {{ t('ai_generating_btn')|tojson }};
+      const generateLabel = {{ t('ai_generate_btn')|tojson }};
+
+      function updateAiCharCount() {
+        const len = aiTplBody.value.length;
+        aiCharCount.textContent = len;
+        aiCharCount.style.color = len > maxChars ? '#e05263' : (len > maxChars * 0.9 ? '#e0b653' : 'var(--text-dim)');
+      }
+      aiTplBody.addEventListener('input', updateAiCharCount);
+
+      campaignAiBtn.addEventListener('click', async () => {
+        const prompt = aiPrompt.value.trim();
+        aiError.style.display = 'none';
+        if (!prompt) {
+          aiError.textContent = errorMessages.empty_prompt;
+          aiError.style.display = 'block';
+          return;
+        }
+        campaignAiBtn.disabled = true;
+        campaignAiBtn.textContent = generatingLabel;
         try {
-          const resp = await fetch('{{ url_for("preview_audience") }}', {
+          const resp = await fetch('{{ url_for("generate_ai_template") }}', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({city: cityFilter.value, days: daysFilter.value}),
+            body: JSON.stringify({prompt: prompt}),
           });
           const data = await resp.json();
-          currentAudienceCount = data.count;
-          audienceCount.textContent = {{ t('recipients_text', count='__COUNT__')|tojson }}.replace('__COUNT__', data.count);
-          if (vonageReady && data.count > 0) {
-            estimatedTimeGroup.style.display = '';
-            estimatedTime.textContent = {{ t('estimated_time_text', time='__TIME__', rate=send_rate)|tojson }}.replace('__TIME__', data.estimated_time);
+          if (data.success) {
+            aiTplBody.value = data.message;
+            if (!aiTplName.value.trim()) {
+              aiTplName.value = prompt.slice(0, 40);
+            }
+            updateAiCharCount();
+            aiResult.style.display = '';
           } else {
-            estimatedTimeGroup.style.display = 'none';
+            aiError.textContent = errorMessages[data.error] || genericError;
+            aiError.style.display = 'block';
           }
-        } catch (e) { /* ignore, keep last known count */ }
-      }, 400);
-    }
-    cityFilter.addEventListener('input', updateAudiencePreview);
-    daysFilter.addEventListener('input', updateAudiencePreview);
+        } catch (e) {
+          aiError.textContent = genericError;
+          aiError.style.display = 'block';
+        } finally {
+          campaignAiBtn.disabled = false;
+          campaignAiBtn.textContent = generateLabel;
+        }
+      });
 
-    function confirmSend() {
-      const scheduledAt = scheduledAtInput.value;
-      if (scheduledAt) {
-        return confirm({{ t('confirm_schedule', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount));
-      }
-      const msg = vonageReady
-        ? {{ t('confirm_send_live', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount)
-        : {{ t('confirm_send_sim', count='__COUNT__')|tojson }}.replace('__COUNT__', currentAudienceCount);
-      return confirm(msg);
+      aiSaveBtn.addEventListener('click', async () => {
+        aiSaveError.style.display = 'none';
+        const name = aiTplName.value.trim();
+        const body = aiTplBody.value.trim();
+        if (!name) {
+          aiSaveError.textContent = errorMessages.missing_name;
+          aiSaveError.style.display = 'block';
+          return;
+        }
+        aiSaveBtn.disabled = true;
+        try {
+          const resp = await fetch('{{ url_for("quick_create_template") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: name, body: body}),
+          });
+          const data = await resp.json();
+          if (data.success) {
+            // Reload so the (possibly first-ever) template list renders the
+            // full campaign form, then auto-select the one we just made.
+            sessionStorage.setItem('justCreatedTemplateId', data.id);
+            window.location.reload();
+          } else {
+            aiSaveError.textContent = errorMessages[data.error] || genericError;
+            aiSaveError.style.display = 'block';
+          }
+        } catch (e) {
+          aiSaveError.textContent = genericError;
+          aiSaveError.style.display = 'block';
+        } finally {
+          aiSaveBtn.disabled = false;
+        }
+      });
     }
+
+    // After a reload triggered by "Save & Use" above, auto-select the
+    // template that was just generated and created.
+    (function restoreJustCreatedTemplate() {
+      const justCreatedId = sessionStorage.getItem('justCreatedTemplateId');
+      if (!justCreatedId) return;
+      sessionStorage.removeItem('justCreatedTemplateId');
+      const sel = document.getElementById('templateSelect');
+      if (!sel) return;
+      const opt = Array.from(sel.options).find(o => o.value === justCreatedId);
+      if (opt) {
+        sel.value = justCreatedId;
+        preview.textContent = opt.dataset.body || '';
+      }
+    })();
   </script>
 {% endblock %}

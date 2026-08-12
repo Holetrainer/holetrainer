@@ -212,6 +212,8 @@ TRANSLATIONS = {
         "ai_error_invalid_key": "The Anthropic API key is invalid. Check it in Settings.",
         "ai_error_timeout": "The request took too long. Please try again.",
         "ai_error_generic": "Couldn't generate a message. Please try again.",
+        "ai_error_missing_name": "Give your template a name before saving.",
+        "ai_save_use_btn": "Save & use for this campaign",
         "ai_error_empty_prompt": "Describe what you want the message to say first.",
 
         "ai_settings_title": "AI message generator (optional)",
@@ -468,6 +470,8 @@ TRANSLATIONS = {
         "ai_error_invalid_key": "La API key de Anthropic no es válida. Revísala en Configuración.",
         "ai_error_timeout": "La solicitud tardó demasiado. Intenta de nuevo.",
         "ai_error_generic": "No se pudo generar el mensaje. Intenta de nuevo.",
+        "ai_error_missing_name": "Dale un nombre a tu plantilla antes de guardar.",
+        "ai_save_use_btn": "Guardar y usar en esta campaña",
         "ai_error_empty_prompt": "Primero describe qué quieres que diga el mensaje.",
 
         "ai_settings_title": "Generador de mensajes con IA (opcional)",

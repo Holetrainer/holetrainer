@@ -790,6 +790,34 @@ def generate_ai_template():
     return jsonify({"success": False, "error": result}), 502
 
 
+@app.route("/templates/quick-create", methods=["POST"])
+def quick_create_template():
+    """Used by the New Campaign page to save an AI-generated (or manually
+    written) message as a real template without leaving the campaign flow,
+    then immediately select it for the campaign being created."""
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    body = (data.get("body") or "").strip()
+
+    if not name:
+        return jsonify({"success": False, "error": "missing_name"}), 400
+    if not body:
+        return jsonify({"success": False, "error": "missing_body"}), 400
+    if len(body) > config.MENSAJE_MAX_CHARS:
+        return jsonify({"success": False, "error": "too_long"}), 400
+
+    all_templates = load_templates()
+    new_tpl = {
+        "id": next_template_id(all_templates),
+        "name": name,
+        "body": body,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    all_templates.append(new_tpl)
+    save_templates(all_templates)
+    return jsonify({"success": True, "id": new_tpl["id"], "name": new_tpl["name"], "body": new_tpl["body"]})
+
+
 @app.route("/templates/delete/<template_id>", methods=["POST"])
 def delete_template(template_id):
     all_templates = load_templates()
@@ -1297,6 +1325,8 @@ def new_campaign():
         send_rate=config.SEND_RATE_PER_SECOND,
         cities_summary=get_cities_summary(all_contacts),
         in_progress=in_progress,
+        ai_ready=anthropic_is_configured(),
+        max_chars=config.MENSAJE_MAX_CHARS,
     )
 
 
