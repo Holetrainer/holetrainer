@@ -1,0 +1,142 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ contact_name if contact_name else phone }}{% endblock %}
+{% block content %}
+  <h1>{{ contact_name if contact_name else phone }}</h1>
+  <p class="subtitle">{{ phone }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% if not vonage_ready %}
+  <div class="flash warn">{{ t('inbox_simulation_note') }}</div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="chat-thread" id="chatThread">
+      {% for m in thread %}
+      <div data-msg-id="{{ m.id }}">
+        <div class="chat-bubble-row {{ m.direction }}">
+          <div class="chat-bubble {{ 'failed-bubble' if m.status == 'failed' else '' }}">{{ m.body }}</div>
+        </div>
+        <div class="chat-timestamp">
+          {{ m.timestamp }}
+          {% if m.status == 'failed' %}<span class="failed-label">{{ t('message_failed_label') }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form action="{{ url_for('send_reply', phone=phone) }}" method="post" id="replyForm">
+      <div class="reply-row">
+        <textarea name="body" id="replyBody" class="textarea-input" style="min-height:44px;" maxlength="{{ max_chars }}" placeholder="{{ t('reply_placeholder') }}" required></textarea>
+        <button type="submit" class="primary">{{ t('send_reply_btn') }}</button>
+      </div>
+      {% if ai_ready %}
+      <div class="button-row" style="justify-content:flex-start; margin-top:8px;">
+        <button type="button" id="suggestReplyBtn">{{ t('suggest_reply_btn') }}</button>
+      </div>
+      <p class="hint" id="suggestReplyError" style="display:none; color:var(--danger);"></p>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="button-row">
+    <a href="{{ url_for('inbox_page') }}" class="button-link">{{ t('back_to_inbox') }}</a>
+  </div>
+
+  <script>
+    // Quietly checks every 3s for new messages in this conversation and
+    // appends them live to the thread — without reloading the page or
+    // wiping out a reply that's mid-draft in the textarea below.
+    const chatThread = document.getElementById('chatThread');
+    let lastSeenId = 0;
+    document.querySelectorAll('[data-msg-id]').forEach(el => {
+      const id = parseInt(el.dataset.msgId, 10);
+      if (id > lastSeenId) lastSeenId = id;
+    });
+
+    function appendMessage(m) {
+      const wrapper = document.createElement('div');
+      wrapper.dataset.msgId = m.id;
+      wrapper.innerHTML = `
+        <div class="chat-bubble-row ${m.direction}">
+          <div class="chat-bubble"></div>
+        </div>
+        <div class="chat-timestamp"></div>
+      `;
+      wrapper.querySelector('.chat-bubble').textContent = m.body;
+      if (m.status === 'failed') {
+        wrapper.querySelector('.chat-bubble').classList.add('failed-bubble');
+        wrapper.querySelector('.chat-timestamp').textContent = m.timestamp + ' ';
+        const label = document.createElement('span');
+        label.className = 'failed-label';
+        label.textContent = {{ t('message_failed_label')|tojson }};
+        wrapper.querySelector('.chat-timestamp').appendChild(label);
+      } else {
+        wrapper.querySelector('.chat-timestamp').textContent = m.timestamp;
+      }
+      chatThread.appendChild(wrapper);
+    }
+
+    async function pollConversation() {
+      try {
+        const resp = await fetch(`{{ url_for('conversation_poll', phone=phone) }}?since_id=${lastSeenId}`);
+        const data = await resp.json();
+        let hasNewInbound = false;
+        data.messages.forEach(m => {
+          appendMessage(m);
+          lastSeenId = Math.max(lastSeenId, parseInt(m.id, 10));
+          if (m.direction === 'in') hasNewInbound = true;
+        });
+        if (hasNewInbound) window.notifyNewMessage();
+      } catch (e) { /* ignore, try again next tick */ }
+      setTimeout(pollConversation, 3000);
+    }
+    setTimeout(pollConversation, 3000);
+
+    // AI-suggested reply — always fills the textarea for the person to
+    // review and edit, never sends automatically.
+    const suggestBtn = document.getElementById('suggestReplyBtn');
+    if (suggestBtn) {
+      const replyBody = document.getElementById('replyBody');
+      const suggestError = document.getElementById('suggestReplyError');
+      const suggestingLabel = {{ t('ai_generating_btn')|tojson }};
+      const suggestLabel = {{ t('suggest_reply_btn')|tojson }};
+      const errorMessages = {
+        not_configured: {{ t('ai_error_not_configured')|tojson }},
+        invalid_key: {{ t('ai_error_invalid_key')|tojson }},
+        timeout: {{ t('ai_error_timeout')|tojson }},
+        no_conversation: {{ t('ai_error_generic')|tojson }},
+      };
+      const genericError = {{ t('ai_error_generic')|tojson }};
+
+      suggestBtn.addEventListener('click', async () => {
+        suggestError.style.display = 'none';
+        suggestBtn.disabled = true;
+        suggestBtn.textContent = suggestingLabel;
+        try {
+          const resp = await fetch(`{{ url_for('suggest_reply', phone=phone) }}`, { method: 'POST' });
+          const data = await resp.json();
+          if (data.success) {
+            replyBody.value = data.message;
+            replyBody.focus();
+          } else {
+            suggestError.textContent = errorMessages[data.error] || genericError;
+            suggestError.style.display = 'block';
+          }
+        } catch (e) {
+          suggestError.textContent = genericError;
+          suggestError.style.display = 'block';
+        } finally {
+          suggestBtn.disabled = false;
+          suggestBtn.textContent = suggestLabel;
+        }
+      });
+    }
+  </script>
+{% endblock %}

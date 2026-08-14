@@ -45,6 +45,11 @@
           <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="6.5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 17c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           {{ t('nav_contacts') }}
         </a>
+        <a href="{{ url_for('inbox_page') }}" class="nav-item {% if active == 'inbox' %}active{% endif %}">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M3 5.5h14v9.5a1 1 0 01-1 1H4a1 1 0 01-1-1V5.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 5.5l7 5.5 7-5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {{ t('nav_inbox') }}
+          {% if unread_message_count and unread_message_count > 0 %}<span class="nav-badge">{{ unread_message_count }}</span>{% endif %}
+        </a>
         <a href="{{ url_for('templates_page') }}" class="nav-item {% if active == 'templates' %}active{% endif %}">
           <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="2.5" y="4" width="15" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 5.5l6.5 5 6.5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           {{ t('nav_templates') }}
@@ -146,6 +151,36 @@
       updateToggleUI();
     });
     updateToggleUI();
+
+    // Shared notification helpers used by the Inbox pages. Generates a
+    // short beep with no external audio file needed. Vibration only works
+    // on Android — Safari on iPhone has never implemented the Vibration
+    // API, so this silently does nothing there (not a bug, just a real
+    // iOS platform limitation).
+    window.playNotificationSound = function () {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.35);
+      } catch (e) { /* audio blocked or unsupported — fail silently */ }
+    };
+    window.vibrateDevice = function () {
+      if (navigator.vibrate) {
+        try { navigator.vibrate([120, 60, 120]); } catch (e) { /* unsupported */ }
+      }
+    };
+    window.notifyNewMessage = function () {
+      window.playNotificationSound();
+      window.vibrateDevice();
+    };
   </script>
 </body>
 </html>

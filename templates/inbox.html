@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+{% block title_suffix %} — {{ t('inbox_title') }}{% endblock %}
+{% block content %}
+  <h1>{{ t('inbox_title') }}</h1>
+  <p class="subtitle">{{ t('inbox_subtitle') }}</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <p class="hint" style="margin-bottom:14px;">{{ t('inbox_notification_note') }}</p>
+
+  <div class="conversation-list">
+    {% for c in conversations %}
+    <a href="{{ url_for('conversation_detail', phone=c.phone) }}" class="conversation-item {{ 'unread' if c.unread_count > 0 else '' }}">
+      <div class="conversation-top-row">
+        <span class="conversation-name">
+          {{ c.name if c.name else c.phone }}
+          {% if c.name %}<span class="conversation-phone">· {{ c.phone }}</span>{% endif %}
+          {% if c.unread_count > 0 %}<span class="unread-dot"></span>{% endif %}
+        </span>
+        <span class="conversation-time">{{ c.last_timestamp }}</span>
+      </div>
+      <div class="conversation-preview {{ 'unread-preview' if c.unread_count > 0 else '' }}">
+        {% if c.last_direction == 'out' %}{{ t('you_prefix') }} {% endif %}{{ c.last_message }}
+      </div>
+    </a>
+    {% endfor %}
+    {% if not conversations %}
+    <div class="panel">
+      <p class="empty-row">{{ t('no_conversations') }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    // Quietly checks every 5s for new incoming messages. If anything
+    // changed since the page loaded, the page refreshes itself so a new
+    // client message shows up automatically — no manual reload needed.
+    let baselineTotalMessages = {{ initial_total_messages }};
+
+    async function pollInboxSummary() {
+      try {
+        const resp = await fetch('{{ url_for("inbox_poll_summary") }}');
+        const data = await resp.json();
+        if (data.total_messages !== baselineTotalMessages) {
+          window.notifyNewMessage();
+          setTimeout(() => window.location.reload(), 400);
+          return;
+        }
+      } catch (e) { /* ignore, try again next tick */ }
+      setTimeout(pollInboxSummary, 5000);
+    }
+    setTimeout(pollInboxSummary, 5000);
+  </script>
+{% endblock %}

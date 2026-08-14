@@ -15,6 +15,7 @@ CONTACTS_FILE = os.path.join(DATA_DIR, "contactos.csv")
 TEMPLATES_FILE = os.path.join(DATA_DIR, "templates.csv")
 CAMPAIGNS_FILE = os.path.join(DATA_DIR, "campaigns.csv")
 OPTOUT_FILE = os.path.join(DATA_DIR, "opt_outs.csv")
+MESSAGES_FILE = os.path.join(DATA_DIR, "messages.csv")
 LOG_FILE = os.path.join(LOGS_DIR, "envios.log")
 
 MENSAJE_MAX_CHARS = 1000

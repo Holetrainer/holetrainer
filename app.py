@@ -240,6 +240,73 @@ def generate_message_with_ai(prompt, max_chars, language="en"):
         return False, str(e)
 
 
+def generate_reply_suggestion(thread, max_chars, language="en"):
+    """Call the Anthropic API to draft a reply to an ongoing conversation.
+    Different from generate_message_with_ai: this drafts a natural,
+    one-on-one reply to what the customer just said, not a marketing blast.
+    Returns (success, text_or_error)."""
+    s = load_settings()
+    api_key = s.get("anthropic_api_key")
+    if not api_key:
+        return False, "anthropic_not_configured"
+
+    lang_instruction = "in English" if language == "en" else "in Spanish"
+    system_prompt = (
+        f"You help a business owner reply to a customer's text message conversation, {lang_instruction}. "
+        f"Draft ONE short, friendly, professional reply to the customer's most recent message, "
+        f"using the conversation so far as context. Keep it under {max_chars} characters, ideally much shorter. "
+        "Do not invent specific facts you don't have (like exact addresses, prices, or times) — if the "
+        "customer asked something you don't have information for, write a reasonable, generic placeholder "
+        "reply the business owner can edit before sending. "
+        "Reply with ONLY the message text, nothing else — no preamble, no explanation, no quotation marks."
+    )
+
+    conversation_text = "\n".join(
+        f"{'Customer' if m['direction'] == 'in' else 'Business'}: {m['body']}"
+        for m in thread[-10:]
+    )
+
+    try:
+        import requests
+        response = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-5",
+                "max_tokens": 300,
+                "system": system_prompt,
+                "messages": [{"role": "user", "content": conversation_text}],
+            },
+            timeout=20,
+        )
+
+        if response.status_code == 401:
+            return False, "invalid_key"
+        if response.status_code != 200:
+            detail = response.json().get("error", {}).get("message", f"HTTP {response.status_code}")
+            return False, detail
+
+        data = response.json()
+        text_blocks = [b["text"] for b in data.get("content", []) if b.get("type") == "text"]
+        message = "".join(text_blocks).strip().strip('"')
+
+        if not message:
+            return False, "empty_response"
+        if len(message) > max_chars:
+            message = message[:max_chars].rsplit(" ", 1)[0]
+
+        return True, message
+
+    except requests.exceptions.Timeout:
+        return False, "timeout"
+    except Exception as e:
+        return False, str(e)
+
+
 def parse_search_with_ai(query, language="en"):
     """Translate a natural-language contact search into structured filters.
     The AI never sees or returns actual contact data — it only extracts filter
@@ -1625,6 +1692,249 @@ def test_vonage_connection():
     return redirect(url_for("settings_page"))
 
 
+MESSAGE_FIELDS = ["id", "phone", "direction", "body", "timestamp", "read", "status"]
+
+
+messages_lock = threading.Lock()
+
+
+def load_messages():
+    if not os.path.exists(config.MESSAGES_FILE):
+        return []
+    with open(config.MESSAGES_FILE, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = []
+        for row in reader:
+            for field in MESSAGE_FIELDS:
+                row.setdefault(field, "")
+            rows.append(row)
+        return rows
+
+
+def save_messages(messages):
+    tmp_file = config.MESSAGES_FILE + ".tmp"
+    with open(tmp_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=MESSAGE_FIELDS)
+        writer.writeheader()
+        for m in messages:
+            writer.writerow({field: m.get(field, "") for field in MESSAGE_FIELDS})
+    os.replace(tmp_file, config.MESSAGES_FILE)
+
+
+def next_message_id(messages):
+    if not messages:
+        return "1"
+    return str(max(int(m["id"]) for m in messages) + 1)
+
+
+def log_message(phone, direction, body, status="delivered"):
+    """Append a single inbound or outbound message to the conversation log.
+    Locked so two messages arriving at nearly the same moment (e.g. a
+    client texting twice quickly) can never overwrite one another."""
+    with messages_lock:
+        messages = load_messages()
+        new_msg = {
+            "id": next_message_id(messages),
+            "phone": phone,
+            "direction": direction,  # "in" or "out"
+            "body": body,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "read": "True" if direction == "out" else "False",
+            "status": status,  # "delivered" or "failed" (outbound only)
+        }
+        messages.append(new_msg)
+        save_messages(messages)
+        return new_msg
+
+
+
+def get_conversations():
+    """One row per phone number, with the latest message and unread count,
+    sorted so the most recently active conversation appears first."""
+    messages = load_messages()
+    contacts_by_phone = {c["phone"]: c for c in load_contacts()}
+
+    by_phone = {}
+    for m in messages:
+        phone = m["phone"]
+        entry = by_phone.setdefault(phone, {"phone": phone, "messages": []})
+        entry["messages"].append(m)
+
+    conversations = []
+    for phone, entry in by_phone.items():
+        msgs = sorted(entry["messages"], key=lambda m: m["timestamp"])
+        last = msgs[-1]
+        unread = sum(1 for m in msgs if m["direction"] == "in" and m["read"] != "True")
+        contact = contacts_by_phone.get(phone)
+        conversations.append({
+            "phone": phone,
+            "name": contact["name"] if contact and contact.get("name") else "",
+            "last_message": last["body"],
+            "last_direction": last["direction"],
+            "last_timestamp": last["timestamp"],
+            "unread_count": unread,
+        })
+
+    conversations.sort(key=lambda c: c["last_timestamp"], reverse=True)
+    return conversations
+
+
+def get_unread_message_count():
+    messages = load_messages()
+    return sum(1 for m in messages if m["direction"] == "in" and m["read"] != "True")
+
+
+@app.context_processor
+def inject_unread_count():
+    """Makes the unread inbox count available to every template (for the
+    nav badge) without every route having to pass it explicitly."""
+    if session.get("user"):
+        return {"unread_message_count": get_unread_message_count()}
+    return {"unread_message_count": 0}
+
+
+@app.route("/inbox")
+def inbox_page():
+    return render_template(
+        "inbox.html",
+        active="inbox",
+        conversations=get_conversations(),
+        initial_total_messages=len(load_messages()),
+    )
+
+
+@app.route("/inbox/<phone>")
+def conversation_detail(phone):
+    messages = load_messages()
+    thread = sorted([m for m in messages if m["phone"] == phone], key=lambda m: m["timestamp"])
+
+    if not thread:
+        flash("Conversation not found.", "error")
+        return redirect(url_for("inbox_page"))
+
+    # Mark all inbound messages in this thread as read now that it's been opened.
+    with messages_lock:
+        messages = load_messages()
+        changed = False
+        for m in messages:
+            if m["phone"] == phone and m["direction"] == "in" and m["read"] != "True":
+                m["read"] = "True"
+                changed = True
+        if changed:
+            save_messages(messages)
+
+    all_contacts = load_contacts()
+    contact = next((c for c in all_contacts if c["phone"] == phone), None)
+
+    return render_template(
+        "conversation.html",
+        active="inbox",
+        phone=phone,
+        contact_name=contact["name"] if contact and contact.get("name") else "",
+        thread=thread,
+        vonage_ready=vonage_is_configured(),
+        max_chars=config.MENSAJE_MAX_CHARS,
+        ai_ready=anthropic_is_configured(),
+    )
+
+
+@app.route("/inbox/poll-summary")
+def inbox_poll_summary():
+    """Checked every few seconds by the inbox list page. If anything changed
+    since the page loaded (a new message came in), the page refreshes itself
+    — so a new client message shows up without anyone needing to hit reload."""
+    messages = load_messages()
+    latest_timestamp = max((m["timestamp"] for m in messages), default="")
+    return jsonify({
+        "unread_count": get_unread_message_count(),
+        "latest_timestamp": latest_timestamp,
+        "total_messages": len(messages),
+    })
+
+
+@app.route("/inbox/<phone>/poll")
+def conversation_poll(phone):
+    """Checked every few seconds while a conversation is open. Any new
+    inbound message is returned (and marked read immediately, same as
+    opening the conversation) so it can be appended live to the chat
+    without losing whatever the person is currently typing in the reply box."""
+    messages = load_messages()
+    since_id = request.args.get("since_id", "0")
+    try:
+        since_id = int(since_id)
+    except ValueError:
+        since_id = 0
+
+    new_for_thread = [m for m in messages if m["phone"] == phone and int(m["id"]) > since_id]
+    new_for_thread.sort(key=lambda m: int(m["id"]))
+
+    with messages_lock:
+        messages = load_messages()
+        changed = False
+        for m in messages:
+            if m["phone"] == phone and m["direction"] == "in" and m["read"] != "True":
+                m["read"] = "True"
+                changed = True
+        if changed:
+            save_messages(messages)
+
+    return jsonify({
+        "messages": [
+            {"id": m["id"], "direction": m["direction"], "body": m["body"], "timestamp": m["timestamp"], "status": m.get("status", "")}
+            for m in new_for_thread
+        ]
+    })
+
+
+@app.route("/inbox/<phone>/suggest-reply", methods=["POST"])
+def suggest_reply(phone):
+    if not anthropic_is_configured():
+        return jsonify({"success": False, "error": "not_configured"}), 400
+
+    messages = load_messages()
+    thread = sorted([m for m in messages if m["phone"] == phone], key=lambda m: m["timestamp"])
+    if not thread:
+        return jsonify({"success": False, "error": "no_conversation"}), 404
+
+    lang = session.get("lang", "en")
+    success, result = generate_reply_suggestion(thread, config.MENSAJE_MAX_CHARS, language=lang)
+
+    if success:
+        return jsonify({"success": True, "message": result})
+    return jsonify({"success": False, "error": result}), 502
+
+
+@app.route("/inbox/<phone>/reply", methods=["POST"])
+def send_reply(phone):
+    body = request.form.get("body", "").strip()
+    if not body:
+        flash("Message can't be empty.", "error")
+        return redirect(url_for("conversation_detail", phone=phone))
+    if len(body) > config.MENSAJE_MAX_CHARS:
+        flash(f"Message exceeds the {config.MENSAJE_MAX_CHARS} character limit.", "error")
+        return redirect(url_for("conversation_detail", phone=phone))
+
+    send_status = "delivered"
+    if vonage_is_configured():
+        settings = load_settings()
+        try:
+            import vonage
+            auth = vonage.Auth(api_key=settings["vonage_api_key"], api_secret=settings["vonage_api_secret"])
+            client = vonage.Vonage(auth)
+            success, detail = send_sms_real(client, settings["vonage_from_number"], phone, body)
+            if not success:
+                send_status = "failed"
+                flash(f"Message could not be sent: {detail}", "error")
+        except Exception as e:
+            send_status = "failed"
+            flash(f"Message could not be sent: {e}", "error")
+    # In simulation mode (Vonage not configured), the reply is still logged
+    # to the conversation so the flow can be tested end-to-end.
+
+    log_message(phone, "out", body, status=send_status)
+    return redirect(url_for("conversation_detail", phone=phone))
+
+
 OPT_OUT_KEYWORDS = {"stop", "unsubscribe", "cancel", "baja", "salir"}
 
 
@@ -1698,14 +2008,19 @@ def remove_optout(phone):
 def inbound_sms_webhook():
     """Vonage calls this URL whenever someone replies to an SMS.
     Vonage accounts can be configured to call this via GET or POST, so both are supported.
-    If the reply matches an opt-out keyword, the contact is opted out automatically."""
+    Every inbound message is logged to the conversation inbox. If the reply
+    matches an opt-out keyword, the contact is also opted out automatically."""
     if request.method == "GET":
         data = request.args.to_dict()
     else:
         data = request.get_json(silent=True) or request.form.to_dict()
 
     from_number = normalize_phone(data.get("msisdn") or data.get("from", ""))
-    text = (data.get("text") or "").strip().lower()
+    original_text = (data.get("text") or "").strip()
+    text = original_text.lower()
+
+    if from_number and original_text:
+        log_message(from_number, "in", original_text)
 
     if from_number and text in OPT_OUT_KEYWORDS:
         all_contacts = load_contacts()
@@ -1723,6 +2038,7 @@ def inbound_sms_webhook():
         save_contacts(all_contacts)
 
     return ("", 204)
+
 
 
 if __name__ == "__main__":
