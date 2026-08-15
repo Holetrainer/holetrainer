@@ -7,6 +7,7 @@ import re
 import json
 import threading
 import time
+import requests
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from translations import get_translator
@@ -158,6 +159,8 @@ def load_settings():
         "vonage_api_secret": config.VONAGE_API_SECRET or "",
         "vonage_from_number": config.VONAGE_FROM_NUMBER or "",
         "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", "") or "",
+        "textbee_api_key": "",
+        "textbee_device_id": "",
         "admin_username": "",
         "admin_password_hash": "",
     }
@@ -1033,6 +1036,37 @@ def send_sms_real(client, from_number, to_number, message):
         return False, str(e)
 
 
+def textbee_is_configured():
+    s = load_settings()
+    return bool(s.get("textbee_api_key") and s.get("textbee_device_id"))
+
+
+def send_sms_via_textbee(api_key, device_id, to_number, message):
+    """Send a single SMS via a personal Android phone running the textbee
+    gateway app. Meant for low-volume individual replies (Inbox), NOT mass
+    campaigns — the free tier caps at 50 messages/day, and bulk marketing
+    through a personal SIM risks the carrier flagging the number.
+    Returns (success, detail)."""
+    try:
+        response = requests.post(
+            f"https://api.textbee.dev/api/v1/gateway/devices/{device_id}/send-sms",
+            headers={"x-api-key": api_key},
+            json={"recipients": [to_number], "message": message},
+            timeout=15,
+        )
+        if response.status_code in (200, 201):
+            return True, "delivered"
+        try:
+            detail = response.json().get("message", f"HTTP {response.status_code}")
+        except Exception:
+            detail = f"HTTP {response.status_code}"
+        return False, detail
+    except requests.exceptions.Timeout:
+        return False, "timeout"
+    except Exception as e:
+        return False, str(e)
+
+
 def personalize(body, contact):
     return body.replace("{name}", contact.get("name") or "there")
 
@@ -1640,6 +1674,8 @@ def settings_page():
         api_secret = request.form.get("vonage_api_secret", "").strip()
         from_number = request.form.get("vonage_from_number", "").strip()
         anthropic_key = request.form.get("anthropic_api_key", "").strip()
+        textbee_api_key = request.form.get("textbee_api_key", "").strip()
+        textbee_device_id = request.form.get("textbee_device_id", "").strip()
 
         current = load_settings()
         # If the masked value was left unchanged, keep the existing secret
@@ -1651,6 +1687,10 @@ def settings_page():
             current["vonage_from_number"] = from_number
         if anthropic_key and not anthropic_key.startswith("*"):
             current["anthropic_api_key"] = anthropic_key
+        if textbee_api_key and not textbee_api_key.startswith("*"):
+            current["textbee_api_key"] = textbee_api_key
+        if textbee_device_id:
+            current["textbee_device_id"] = textbee_device_id
 
         save_settings(current)
         flash("Settings saved.", "success")
@@ -1662,6 +1702,8 @@ def settings_page():
         "vonage_api_secret": mask_secret(s["vonage_api_secret"]),
         "vonage_from_number": s["vonage_from_number"],
         "anthropic_api_key": mask_secret(s.get("anthropic_api_key", "")),
+        "textbee_api_key": mask_secret(s.get("textbee_api_key", "")),
+        "textbee_device_id": s.get("textbee_device_id", ""),
     }
     return render_template(
         "settings.html",
@@ -1669,6 +1711,7 @@ def settings_page():
         settings=display_settings,
         vonage_ready=vonage_is_configured(),
         ai_ready=anthropic_is_configured(),
+        textbee_ready=textbee_is_configured(),
         max_chars=config.MENSAJE_MAX_CHARS,
     )
 
@@ -1928,8 +1971,18 @@ def send_reply(phone):
         except Exception as e:
             send_status = "failed"
             flash(f"Message could not be sent: {e}", "error")
-    # In simulation mode (Vonage not configured), the reply is still logged
-    # to the conversation so the flow can be tested end-to-end.
+    elif textbee_is_configured():
+        # Fallback for individual replies only, using the person's own
+        # Android phone as the sender — NOT used for mass campaigns.
+        settings = load_settings()
+        success, detail = send_sms_via_textbee(
+            settings["textbee_api_key"], settings["textbee_device_id"], phone, body
+        )
+        if not success:
+            send_status = "failed"
+            flash(f"Message could not be sent via textbee: {detail}", "error")
+    # In simulation mode (neither Vonage nor textbee configured), the reply
+    # is still logged to the conversation so the flow can be tested end-to-end.
 
     log_message(phone, "out", body, status=send_status)
     return redirect(url_for("conversation_detail", phone=phone))

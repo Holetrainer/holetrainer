@@ -73,6 +73,29 @@
   </div>
 
   <div class="panel" style="margin-top:14px;">
+    <div class="panel-title">{{ t('textbee_settings_title') }}</div>
+    <p class="hint">{{ t('textbee_settings_desc') }}</p>
+    {% if textbee_ready %}
+    <div class="flash success" style="margin-bottom:10px;">{{ t('textbee_active_note') }}</div>
+    {% elif not vonage_ready %}
+    <div class="flash warn" style="margin-bottom:10px;">{{ t('textbee_fallback_note') }}</div>
+    {% endif %}
+    <form method="post">
+      <div class="form-group">
+        <label class="field-label">{{ t('textbee_key_label') }}</label>
+        <input type="text" name="textbee_api_key" value="{{ settings.textbee_api_key }}" class="text-input" placeholder="{{ t('textbee_key_placeholder') }}" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('textbee_device_label') }}</label>
+        <input type="text" name="textbee_device_id" value="{{ settings.textbee_device_id }}" class="text-input" placeholder="{{ t('textbee_device_placeholder') }}" autocomplete="off">
+      </div>
+      <div class="button-row" style="justify-content:flex-start;">
+        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel" style="margin-top:14px;">
     <div class="panel-title">{{ t('change_password_title') }}</div>
     <form method="post" action="{{ url_for('change_password') }}">
       <div class="form-group">
