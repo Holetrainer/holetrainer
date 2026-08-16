@@ -15,12 +15,39 @@
   <div class="panel" style="margin-bottom:14px;">
     <div class="panel-title">{{ t('connection_status') }}</div>
     <p class="hint" style="margin:0;">
-      {% if vonage_ready %}
+      {% if mass_ready %}
         <span class="badge ok">{{ t('connected_msg') }}</span> {{ t('connected_desc') }}
       {% else %}
         <span class="badge pend">{{ t('not_configured_msg') }}</span> {{ t('not_configured_desc') }}
       {% endif %}
     </p>
+  </div>
+
+  <div class="panel" style="margin-bottom:14px;">
+    <div class="panel-title">{{ t('telnyx_settings_title') }}</div>
+    <p class="hint">{{ t('telnyx_settings_desc') }}</p>
+    {% if telnyx_ready %}
+    <div class="flash success" style="margin-bottom:10px;">{{ t('telnyx_active_note') }}</div>
+    {% endif %}
+    <form method="post">
+      <div class="form-group">
+        <label class="field-label">{{ t('telnyx_key_label') }}</label>
+        <input type="text" name="telnyx_api_key" value="{{ settings.telnyx_api_key }}" class="text-input" placeholder="{{ t('telnyx_key_placeholder') }}" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('telnyx_number_label') }}</label>
+        <input type="text" name="telnyx_from_number" value="{{ settings.telnyx_from_number }}" class="text-input" placeholder="{{ t('telnyx_number_placeholder') }}">
+        <p class="hint" style="margin-top:4px;">{{ t('telnyx_number_hint') }}</p>
+      </div>
+      <div class="form-group">
+        <label class="field-label">{{ t('telnyx_pubkey_label') }}</label>
+        <input type="text" name="telnyx_public_key" value="{{ settings.telnyx_public_key }}" class="text-input" placeholder="{{ t('telnyx_pubkey_placeholder') }}" autocomplete="off">
+        <p class="hint" style="margin-top:4px;">{{ t('telnyx_pubkey_hint') }}</p>
+      </div>
+      <div class="button-row" style="justify-content:flex-start;">
+        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
+      </div>
+    </form>
   </div>
 
   <div class="panel">

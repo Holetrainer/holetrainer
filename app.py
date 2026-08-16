@@ -161,6 +161,9 @@ def load_settings():
         "anthropic_api_key": os.getenv("ANTHROPIC_API_KEY", "") or "",
         "textbee_api_key": "",
         "textbee_device_id": "",
+        "telnyx_api_key": "",
+        "telnyx_from_number": "",
+        "telnyx_public_key": "",
         "admin_username": "",
         "admin_password_hash": "",
     }
@@ -1067,6 +1070,77 @@ def send_sms_via_textbee(api_key, device_id, to_number, message):
         return False, str(e)
 
 
+def telnyx_is_configured():
+    s = load_settings()
+    return bool(s.get("telnyx_api_key") and s.get("telnyx_from_number"))
+
+
+def send_sms_via_telnyx(api_key, from_number, to_number, message):
+    """Send a single SMS via Telnyx. Returns (success, detail)."""
+    try:
+        response = requests.post(
+            "https://api.telnyx.com/v2/messages",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": from_number, "to": to_number, "text": message},
+            timeout=15,
+        )
+        if response.status_code in (200, 201, 202):
+            return True, "delivered"
+        try:
+            errors = response.json().get("errors", [])
+            detail = errors[0].get("detail", f"HTTP {response.status_code}") if errors else f"HTTP {response.status_code}"
+        except Exception:
+            detail = f"HTTP {response.status_code}"
+        return False, detail
+    except requests.exceptions.Timeout:
+        return False, "timeout"
+    except Exception as e:
+        return False, str(e)
+
+
+def mass_sms_ready():
+    """Whether ANY provider capable of mass-campaign volume is configured.
+    textbee is intentionally excluded here — its free tier caps at 50
+    messages/day and bulk marketing through a personal SIM risks the
+    carrier flagging the number, so it's only ever used for individual
+    Inbox replies, never mass campaigns."""
+    return telnyx_is_configured() or vonage_is_configured()
+
+
+def get_mass_sms_provider():
+    """Returns ('telnyx', creds) or ('vonage', creds) or (None, None),
+    preferring Telnyx when both are configured."""
+    s = load_settings()
+    if telnyx_is_configured():
+        return "telnyx", s
+    if vonage_is_configured():
+        return "vonage", s
+    return None, None
+
+
+def send_single_sms(to_number, message):
+    """Used for individual Inbox replies. Tries providers in priority
+    order — Telnyx, then Vonage, then the personal-phone textbee fallback —
+    and returns (success, detail, provider_used)."""
+    s = load_settings()
+    if telnyx_is_configured():
+        success, detail = send_sms_via_telnyx(s["telnyx_api_key"], s["telnyx_from_number"], to_number, message)
+        return success, detail, "telnyx"
+    if vonage_is_configured():
+        try:
+            import vonage
+            auth = vonage.Auth(api_key=s["vonage_api_key"], api_secret=s["vonage_api_secret"])
+            client = vonage.Vonage(auth)
+            success, detail = send_sms_real(client, s["vonage_from_number"], to_number, message)
+            return success, detail, "vonage"
+        except Exception as e:
+            return False, str(e), "vonage"
+    if textbee_is_configured():
+        success, detail = send_sms_via_textbee(s["textbee_api_key"], s["textbee_device_id"], to_number, message)
+        return success, detail, "textbee"
+    return True, "simulated (no provider configured)", "simulation"
+
+
 def personalize(body, contact):
     return body.replace("{name}", contact.get("name") or "there")
 
@@ -1128,17 +1202,17 @@ def filter_recipients(active_contacts, city_filter="", days_filter=""):
     return filtered
 
 
-def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds):
+def run_campaign_send(campaign_id, template_body, recipients, mode, provider, provider_creds):
     """Runs in a background thread. Never touches Flask's request/session —
     everything it needs is passed in as plain values up front."""
     client = None
     from_number = None
-    if mode == "live":
+    if mode == "live" and provider == "vonage":
         try:
             import vonage
-            auth = vonage.Auth(api_key=vonage_creds["vonage_api_key"], api_secret=vonage_creds["vonage_api_secret"])
+            auth = vonage.Auth(api_key=provider_creds["vonage_api_key"], api_secret=provider_creds["vonage_api_secret"])
             client = vonage.Vonage(auth)
-            from_number = vonage_creds["vonage_from_number"]
+            from_number = provider_creds["vonage_from_number"]
         except Exception as e:
             update_campaign_record(campaign_id, status="completed", sent=0, failed=len(recipients))
             append_send_log([{
@@ -1159,10 +1233,14 @@ def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds
                 if not phone:
                     raise ValueError("contact missing phone number")
 
-                if mode == "live":
+                if mode == "live" and provider == "vonage":
                     success, detail = send_sms_real(client, from_number, phone, message)
+                elif mode == "live" and provider == "telnyx":
+                    success, detail = send_sms_via_telnyx(
+                        provider_creds["telnyx_api_key"], provider_creds["telnyx_from_number"], phone, message
+                    )
                 else:
-                    success, detail = True, "simulated (Vonage not configured)"
+                    success, detail = True, "simulated (no mass-sending provider configured)"
             except Exception as e:
                 success, detail = False, f"unexpected error: {e}"
                 phone = contact.get("phone", "-") if isinstance(contact, dict) else "-"
@@ -1190,8 +1268,8 @@ def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds
                     pass
 
         if i < len(recipients):
-            # Real sends respect Vonage's rate limit. Simulation mode uses a
-            # tiny delay just so progress is visible without waiting for real.
+            # Real sends respect the provider's rate limit. Simulation mode
+            # uses a tiny delay just so progress is visible without waiting.
             time.sleep(1.0 / config.SEND_RATE_PER_SECOND if mode == "live" else 0.02)
     finally:
         # No matter what happens above — even a completely unexpected crash —
@@ -1204,11 +1282,14 @@ def run_campaign_send(campaign_id, template_body, recipients, mode, vonage_creds
 
 
 def start_campaign_send(campaign_id, template_body, recipients, mode):
-    """Kick off a background send thread, snapshotting Vonage creds up front."""
-    vonage_creds = load_settings() if mode == "live" else {}
+    """Kick off a background send thread, snapshotting the active
+    provider's creds up front."""
+    provider, provider_creds = (None, {})
+    if mode == "live":
+        provider, provider_creds = get_mass_sms_provider()
     thread = threading.Thread(
         target=run_campaign_send,
-        args=(campaign_id, template_body, [dict(c) for c in recipients], mode, vonage_creds),
+        args=(campaign_id, template_body, [dict(c) for c in recipients], mode, provider, provider_creds),
         daemon=True,
     )
     thread.start()
@@ -1227,7 +1308,7 @@ def launch_campaign_now(c):
     active_contacts = [ct for ct in all_contacts if ct.get("opted_out") != "True"]
     recipients = filter_recipients(active_contacts, c.get("city_filter", ""), c.get("days_filter", ""))
 
-    mode = "live" if vonage_is_configured() else "simulation"
+    mode = "live" if mass_sms_ready() else "simulation"
     update_campaign_record(c["id"], mode=mode, total_recipients=len(recipients))
     start_campaign_send(c["id"], template["body"], recipients, mode)
 
@@ -1359,7 +1440,7 @@ def new_campaign():
                 "sent": "0",
                 "failed": "0",
                 "status": "scheduled",
-                "mode": "live" if vonage_is_configured() else "simulation",
+                "mode": "live" if mass_sms_ready() else "simulation",
                 "created_at": timestamp,
                 "scheduled_at": scheduled_dt.strftime("%Y-%m-%d %H:%M:%S"),
                 "city_filter": city_filter,
@@ -1374,7 +1455,7 @@ def new_campaign():
             )
             return redirect(url_for("campaign_detail", campaign_id=campaign_id))
 
-        vonage_ready = vonage_is_configured()
+        vonage_ready = mass_sms_ready()
         mode = "live" if vonage_ready else "simulation"
 
         # If something is already sending, this one waits its turn instead of
@@ -1421,7 +1502,7 @@ def new_campaign():
         active="campaigns",
         templates=all_templates,
         active_contacts_count=len(active_contacts),
-        vonage_ready=vonage_is_configured(),
+        vonage_ready=mass_sms_ready(),
         estimated_duration=estimate_send_duration(len(active_contacts)) if active_contacts else "",
         send_rate=config.SEND_RATE_PER_SECOND,
         cities_summary=get_cities_summary(all_contacts),
@@ -1676,6 +1757,9 @@ def settings_page():
         anthropic_key = request.form.get("anthropic_api_key", "").strip()
         textbee_api_key = request.form.get("textbee_api_key", "").strip()
         textbee_device_id = request.form.get("textbee_device_id", "").strip()
+        telnyx_api_key = request.form.get("telnyx_api_key", "").strip()
+        telnyx_from_number = request.form.get("telnyx_from_number", "").strip()
+        telnyx_public_key = request.form.get("telnyx_public_key", "").strip()
 
         current = load_settings()
         # If the masked value was left unchanged, keep the existing secret
@@ -1691,6 +1775,12 @@ def settings_page():
             current["textbee_api_key"] = textbee_api_key
         if textbee_device_id:
             current["textbee_device_id"] = textbee_device_id
+        if telnyx_api_key and not telnyx_api_key.startswith("*"):
+            current["telnyx_api_key"] = telnyx_api_key
+        if telnyx_from_number:
+            current["telnyx_from_number"] = telnyx_from_number
+        if telnyx_public_key:
+            current["telnyx_public_key"] = telnyx_public_key
 
         save_settings(current)
         flash("Settings saved.", "success")
@@ -1704,6 +1794,9 @@ def settings_page():
         "anthropic_api_key": mask_secret(s.get("anthropic_api_key", "")),
         "textbee_api_key": mask_secret(s.get("textbee_api_key", "")),
         "textbee_device_id": s.get("textbee_device_id", ""),
+        "telnyx_api_key": mask_secret(s.get("telnyx_api_key", "")),
+        "telnyx_from_number": s.get("telnyx_from_number", ""),
+        "telnyx_public_key": s.get("telnyx_public_key", ""),
     }
     return render_template(
         "settings.html",
@@ -1712,6 +1805,8 @@ def settings_page():
         vonage_ready=vonage_is_configured(),
         ai_ready=anthropic_is_configured(),
         textbee_ready=textbee_is_configured(),
+        telnyx_ready=telnyx_is_configured(),
+        mass_ready=mass_sms_ready(),
         max_chars=config.MENSAJE_MAX_CHARS,
     )
 
@@ -1957,34 +2052,13 @@ def send_reply(phone):
         flash(f"Message exceeds the {config.MENSAJE_MAX_CHARS} character limit.", "error")
         return redirect(url_for("conversation_detail", phone=phone))
 
-    send_status = "delivered"
-    if vonage_is_configured():
-        settings = load_settings()
-        try:
-            import vonage
-            auth = vonage.Auth(api_key=settings["vonage_api_key"], api_secret=settings["vonage_api_secret"])
-            client = vonage.Vonage(auth)
-            success, detail = send_sms_real(client, settings["vonage_from_number"], phone, body)
-            if not success:
-                send_status = "failed"
-                flash(f"Message could not be sent: {detail}", "error")
-        except Exception as e:
-            send_status = "failed"
-            flash(f"Message could not be sent: {e}", "error")
-    elif textbee_is_configured():
-        # Fallback for individual replies only, using the person's own
-        # Android phone as the sender — NOT used for mass campaigns.
-        settings = load_settings()
-        success, detail = send_sms_via_textbee(
-            settings["textbee_api_key"], settings["textbee_device_id"], phone, body
-        )
-        if not success:
-            send_status = "failed"
-            flash(f"Message could not be sent via textbee: {detail}", "error")
-    # In simulation mode (neither Vonage nor textbee configured), the reply
-    # is still logged to the conversation so the flow can be tested end-to-end.
+    success, detail, provider = send_single_sms(phone, body)
+    send_status = "delivered" if success else "failed"
+    if not success:
+        flash(f"Message could not be sent via {provider}: {detail}", "error")
 
     log_message(phone, "out", body, status=send_status)
+
     return redirect(url_for("conversation_detail", phone=phone))
 
 
@@ -2057,19 +2131,62 @@ def remove_optout(phone):
     return redirect(url_for("optouts_page"))
 
 
+def verify_telnyx_signature(public_key_b64, signature_b64, timestamp, raw_body):
+    """Verify a Telnyx webhook's Ed25519 signature, proving the request
+    genuinely came from Telnyx and wasn't spoofed by someone hitting this
+    URL directly with fake data. Returns True only if the signature checks
+    out against the exact bytes Telnyx signed (timestamp|raw_body)."""
+    try:
+        import base64
+        from nacl.signing import VerifyKey
+        from nacl.exceptions import BadSignatureError
+
+        verify_key = VerifyKey(base64.b64decode(public_key_b64))
+        signed_message = timestamp.encode("utf-8") + b"|" + raw_body
+        verify_key.verify(signed_message, base64.b64decode(signature_b64))
+        return True
+    except (BadSignatureError, Exception):
+        return False
+
+
 @app.route("/webhooks/inbound-sms", methods=["GET", "POST"])
 def inbound_sms_webhook():
-    """Vonage calls this URL whenever someone replies to an SMS.
-    Vonage accounts can be configured to call this via GET or POST, so both are supported.
-    Every inbound message is logged to the conversation inbox. If the reply
-    matches an opt-out keyword, the contact is also opted out automatically."""
-    if request.method == "GET":
-        data = request.args.to_dict()
-    else:
-        data = request.get_json(silent=True) or request.form.to_dict()
+    """Handles inbound SMS webhooks from either Vonage (simple msisdn/text
+    params) or Telnyx (nested JSON, Ed25519-signed). Every inbound message
+    is logged to the conversation inbox. If the reply matches an opt-out
+    keyword, the contact is also opted out automatically."""
+    telnyx_signature = request.headers.get("telnyx-signature-ed25519")
+    telnyx_timestamp = request.headers.get("telnyx-timestamp")
 
-    from_number = normalize_phone(data.get("msisdn") or data.get("from", ""))
-    original_text = (data.get("text") or "").strip()
+    from_number = ""
+    original_text = ""
+
+    if telnyx_signature and telnyx_timestamp:
+        # This request claims to be from Telnyx — verify before trusting
+        # ANY of its contents. Fail closed: no valid key configured means
+        # we can't verify, so we reject rather than process it unverified.
+        settings = load_settings()
+        public_key = settings.get("telnyx_public_key", "")
+        raw_body = request.get_data()
+
+        if not public_key or not verify_telnyx_signature(public_key, telnyx_signature, telnyx_timestamp, raw_body):
+            return ("Invalid signature", 401)
+
+        payload = request.get_json(silent=True) or {}
+        event = payload.get("data", {})
+        if event.get("event_type") == "message.received":
+            msg_payload = event.get("payload", {})
+            from_number = normalize_phone(msg_payload.get("from", {}).get("phone_number", ""))
+            original_text = (msg_payload.get("text") or "").strip()
+    else:
+        # Vonage-style: simple flat params, no signature scheme in use.
+        if request.method == "GET":
+            data = request.args.to_dict()
+        else:
+            data = request.get_json(silent=True) or request.form.to_dict()
+        from_number = normalize_phone(data.get("msisdn") or data.get("from", ""))
+        original_text = (data.get("text") or "").strip()
+
     text = original_text.lower()
 
     if from_number and original_text:
@@ -2089,6 +2206,7 @@ def inbound_sms_webhook():
                 "consent_date": datetime.now().strftime("%Y-%m-%d"),
             })
         save_contacts(all_contacts)
+
 
     return ("", 204)
 

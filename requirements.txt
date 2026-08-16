@@ -3,3 +3,4 @@ vonage
 pandas
 python-dotenv
 gunicorn
+pynacl
