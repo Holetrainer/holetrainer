@@ -25,7 +25,7 @@
         </div>
         <div class="chat-timestamp">
           {{ m.timestamp }}
-          {% if m.status == 'failed' %}<span class="failed-label">{{ t('message_failed_label') }}</span>{% endif %}
+          {% if m.status == 'failed' %}<span class="failed-label">{{ t('message_failed_label') }}{% if m.error_detail %} — {{ m.error_detail }}{% endif %}</span>{% endif %}
         </div>
       </div>
       {% endfor %}
@@ -75,7 +75,7 @@
         wrapper.querySelector('.chat-timestamp').textContent = m.timestamp + ' ';
         const label = document.createElement('span');
         label.className = 'failed-label';
-        label.textContent = {{ t('message_failed_label')|tojson }};
+        label.textContent = {{ t('message_failed_label')|tojson }} + (m.error_detail ? ' — ' + m.error_detail : '');
         wrapper.querySelector('.chat-timestamp').appendChild(label);
       } else {
         wrapper.querySelector('.chat-timestamp').textContent = m.timestamp;

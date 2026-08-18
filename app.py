@@ -1830,7 +1830,7 @@ def test_vonage_connection():
     return redirect(url_for("settings_page"))
 
 
-MESSAGE_FIELDS = ["id", "phone", "direction", "body", "timestamp", "read", "status"]
+MESSAGE_FIELDS = ["id", "phone", "direction", "body", "timestamp", "read", "status", "error_detail"]
 
 
 messages_lock = threading.Lock()
@@ -1865,7 +1865,7 @@ def next_message_id(messages):
     return str(max(int(m["id"]) for m in messages) + 1)
 
 
-def log_message(phone, direction, body, status="delivered"):
+def log_message(phone, direction, body, status="delivered", error_detail=""):
     """Append a single inbound or outbound message to the conversation log.
     Locked so two messages arriving at nearly the same moment (e.g. a
     client texting twice quickly) can never overwrite one another."""
@@ -1879,6 +1879,7 @@ def log_message(phone, direction, body, status="delivered"):
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "read": "True" if direction == "out" else "False",
             "status": status,  # "delivered" or "failed" (outbound only)
+            "error_detail": error_detail,  # why it failed, persisted (not a one-time flash)
         }
         messages.append(new_msg)
         save_messages(messages)
@@ -2018,7 +2019,7 @@ def conversation_poll(phone):
 
     return jsonify({
         "messages": [
-            {"id": m["id"], "direction": m["direction"], "body": m["body"], "timestamp": m["timestamp"], "status": m.get("status", "")}
+            {"id": m["id"], "direction": m["direction"], "body": m["body"], "timestamp": m["timestamp"], "status": m.get("status", ""), "error_detail": m.get("error_detail", "")}
             for m in new_for_thread
         ]
     })
@@ -2054,10 +2055,12 @@ def send_reply(phone):
 
     success, detail, provider = send_single_sms(phone, body)
     send_status = "delivered" if success else "failed"
+    error_detail = ""
     if not success:
+        error_detail = f"{provider}: {detail}"
         flash(f"Message could not be sent via {provider}: {detail}", "error")
 
-    log_message(phone, "out", body, status=send_status)
+    log_message(phone, "out", body, status=send_status, error_detail=error_detail)
 
     return redirect(url_for("conversation_detail", phone=phone))
 
