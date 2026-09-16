@@ -2066,6 +2066,8 @@ def send_reply(phone):
 
 
 OPT_OUT_KEYWORDS = {"stop", "unsubscribe", "cancel", "baja", "salir"}
+OPT_IN_KEYWORDS = {"start", "unstop", "yes", "si", "sí"}
+HELP_KEYWORDS = {"help", "info", "ayuda"}
 
 
 @app.route("/optouts")
@@ -2210,6 +2212,32 @@ def inbound_sms_webhook():
             })
         save_contacts(all_contacts)
 
+    elif from_number and text in OPT_IN_KEYWORDS:
+        all_contacts = load_contacts()
+        target = next((c for c in all_contacts if c["phone"] == from_number), None)
+        if target:
+            target["opted_out"] = "False"
+            target["consent_source"] = f"SMS opt-in ({original_text.strip().upper()} keyword)"
+            target["consent_date"] = datetime.now().strftime("%Y-%m-%d")
+        else:
+            all_contacts.append({
+                "name": "",
+                "phone": from_number,
+                "opted_out": "False",
+                "consent_source": f"SMS opt-in ({original_text.strip().upper()} keyword)",
+                "consent_date": datetime.now().strftime("%Y-%m-%d"),
+            })
+        save_contacts(all_contacts)
+
+    elif from_number and text in HELP_KEYWORDS:
+        help_body = (
+            "HotMedia Messenger: Msg & data rates may apply. "
+            "Reply STOP to unsubscribe, START to resubscribe. "
+            "For support, contact us directly."
+        )
+        success, detail, provider = send_single_sms(from_number, help_body)
+        log_message(from_number, "out", help_body, status="delivered" if success else "failed",
+                    error_detail="" if success else f"{provider}: {detail}")
 
     return ("", 204)
 
