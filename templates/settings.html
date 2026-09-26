@@ -1,160 +1,59 @@
-{% extends "layout.html" %}
-{% block title_suffix %} — {{ t('settings_title') }}{% endblock %}
-{% block content %}
-  <h1>{{ t('settings_title') }}</h1>
-  <p class="subtitle">{{ t('settings_subtitle') }}</p>
+{% extends "layout.html" %} {% block title_suffix %} — {{ t('settings_title') }}{% endblock %} {% block content %}
+{{ t('settings_title') }}
+{{ t('settings_subtitle') }}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="flash {{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
+{% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for category, message in messages %}
+{{ message }}
+{% endfor %} {% endif %} {% endwith %}
+{{ t('connection_status') }}
+{% if mass_ready %} {{ t('connected_msg') }} {{ t('connected_desc') }} {% else %} {{ t('not_configured_msg') }} {{ t('not_configured_desc') }} {% endif %}
 
-  <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-title">{{ t('connection_status') }}</div>
-    <p class="hint" style="margin:0;">
-      {% if mass_ready %}
-        <span class="badge ok">{{ t('connected_msg') }}</span> {{ t('connected_desc') }}
-      {% else %}
-        <span class="badge pend">{{ t('not_configured_msg') }}</span> {{ t('not_configured_desc') }}
-      {% endif %}
-    </p>
-  </div>
+{{ t('telnyx_settings_title') }}
+{{ t('telnyx_settings_desc') }}
 
-  <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-title">{{ t('telnyx_settings_title') }}</div>
-    <p class="hint">{{ t('telnyx_settings_desc') }}</p>
-    {% if telnyx_ready %}
-    <div class="flash success" style="margin-bottom:10px;">{{ t('telnyx_active_note') }}</div>
-    {% endif %}
-    <form method="post">
-      <div class="form-group">
-        <label class="field-label">{{ t('telnyx_key_label') }}</label>
-        <input type="text" name="telnyx_api_key" value="{{ settings.telnyx_api_key }}" class="text-input" placeholder="{{ t('telnyx_key_placeholder') }}" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('telnyx_number_label') }}</label>
-        <input type="text" name="telnyx_from_number" value="{{ settings.telnyx_from_number }}" class="text-input" placeholder="{{ t('telnyx_number_placeholder') }}">
-        <p class="hint" style="margin-top:4px;">{{ t('telnyx_number_hint') }}</p>
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('telnyx_pubkey_label') }}</label>
-        <input type="text" name="telnyx_public_key" value="{{ settings.telnyx_public_key }}" class="text-input" placeholder="{{ t('telnyx_pubkey_placeholder') }}" autocomplete="off">
-        <p class="hint" style="margin-top:4px;">{{ t('telnyx_pubkey_hint') }}</p>
-      </div>
-      <div class="button-row" style="justify-content:flex-start;">
-        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
-      </div>
-    </form>
-  </div>
+{% if telnyx_ready %}
+{{ t('telnyx_active_note') }}
+{% endif %}
+{{ t('telnyx_key_label') }} 
+{{ settings.telnyx_api_key }}
+{{ t('telnyx_number_label') }} 
+{{ settings.telnyx_from_number }}
+{{ t('telnyx_number_hint') }}
 
-  <div class="panel">
-    <div class="panel-title">{{ t('vonage_credentials') }}</div>
-    <form method="post">
-      <div class="form-group">
-        <label class="field-label">{{ t('api_key_label') }}</label>
-        <input type="text" name="vonage_api_key" value="{{ settings.vonage_api_key }}" class="text-input" placeholder="{{ t('api_key_placeholder') }}" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('api_secret_label') }}</label>
-        <input type="text" name="vonage_api_secret" value="{{ settings.vonage_api_secret }}" class="text-input" placeholder="{{ t('api_secret_placeholder') }}" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('sender_label') }}</label>
-        <input type="text" name="vonage_from_number" value="{{ settings.vonage_from_number }}" class="text-input" placeholder="{{ t('sender_placeholder') }}">
-      </div>
-      <p class="hint">{{ t('settings_hint') }}</p>
-      <div class="button-row" style="justify-content:flex-start;">
-        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
-      </div>
-    </form>
-  </div>
+{{ t('telnyx_pubkey_label') }} 
+{{ settings.telnyx_public_key }}
+{{ t('telnyx_pubkey_hint') }}
 
-  {% if vonage_ready %}
-  <div class="panel" style="margin-top:14px;">
-    <div class="panel-title">{{ t('test_connection_title') }}</div>
-    <p class="hint">{{ t('test_connection_desc') }}</p>
-    <form method="post" action="{{ url_for('test_vonage_connection') }}">
-      <button type="submit">{{ t('test_connection_btn') }}</button>
-    </form>
-  </div>
-  {% endif %}
+{{ t('save_settings_btn') }}
+{{ t('ai_settings_title') }}
+{{ t('ai_settings_desc') }}
 
-  <div class="panel" style="margin-top:14px;">
-    <div class="panel-title">{{ t('ai_settings_title') }}</div>
-    <p class="hint">{{ t('ai_settings_desc') }}</p>
-    <form method="post">
-      <input type="hidden" name="vonage_api_key" value="{{ settings.vonage_api_key }}">
-      <input type="hidden" name="vonage_api_secret" value="{{ settings.vonage_api_secret }}">
-      <input type="hidden" name="vonage_from_number" value="{{ settings.vonage_from_number }}">
-      <div class="form-group">
-        <label class="field-label">{{ t('ai_key_label') }}</label>
-        <input type="text" name="anthropic_api_key" value="{{ settings.anthropic_api_key }}" class="text-input" placeholder="{{ t('ai_key_placeholder') }}" autocomplete="off">
-      </div>
-      <div class="button-row" style="justify-content:flex-start;">
-        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
-      </div>
-    </form>
-  </div>
+{{ t('ai_key_label') }} 
+{{ settings.anthropic_api_key }}
+{{ t('save_settings_btn') }}
+{{ t('textbee_settings_title') }}
+{{ t('textbee_settings_desc') }}
 
-  <div class="panel" style="margin-top:14px;">
-    <div class="panel-title">{{ t('textbee_settings_title') }}</div>
-    <p class="hint">{{ t('textbee_settings_desc') }}</p>
-    {% if textbee_ready %}
-    <div class="flash success" style="margin-bottom:10px;">{{ t('textbee_active_note') }}</div>
-    {% elif not vonage_ready %}
-    <div class="flash warn" style="margin-bottom:10px;">{{ t('textbee_fallback_note') }}</div>
-    {% endif %}
-    <form method="post">
-      <div class="form-group">
-        <label class="field-label">{{ t('textbee_key_label') }}</label>
-        <input type="text" name="textbee_api_key" value="{{ settings.textbee_api_key }}" class="text-input" placeholder="{{ t('textbee_key_placeholder') }}" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('textbee_device_label') }}</label>
-        <input type="text" name="textbee_device_id" value="{{ settings.textbee_device_id }}" class="text-input" placeholder="{{ t('textbee_device_placeholder') }}" autocomplete="off">
-      </div>
-      <div class="button-row" style="justify-content:flex-start;">
-        <button type="submit" class="primary">{{ t('save_settings_btn') }}</button>
-      </div>
-    </form>
-  </div>
+{% if textbee_ready %}
+{{ t('textbee_active_note') }}
+{% elif not mass_ready %}
+{{ t('textbee_fallback_note') }}
+{% endif %}
+{{ t('textbee_key_label') }} 
+{{ settings.textbee_api_key }}
+{{ t('textbee_device_label') }} 
+{{ settings.textbee_device_id }}
+{{ t('save_settings_btn') }}
+{{ t('change_password_title') }}
+{{ t('current_password_label') }} 
+{{ t('new_password_label') }} 
+{{ t('confirm_password_label') }} 
+{{ t('change_password_btn') }}
+{{ t('message_limits') }}
+{{ t('message_limits_text', max=max_chars, segments=(max_chars / 153) | round(0, 'ceil') | int) }}
 
-  <div class="panel" style="margin-top:14px;">
-    <div class="panel-title">{{ t('change_password_title') }}</div>
-    <form method="post" action="{{ url_for('change_password') }}">
-      <div class="form-group">
-        <label class="field-label">{{ t('current_password_label') }}</label>
-        <input type="password" name="current_password" class="text-input" required autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('new_password_label') }}</label>
-        <input type="password" name="new_password" class="text-input" required minlength="8" autocomplete="off">
-      </div>
-      <div class="form-group">
-        <label class="field-label">{{ t('confirm_password_label') }}</label>
-        <input type="password" name="confirm_password" class="text-input" required minlength="8" autocomplete="off">
-      </div>
-      <div class="button-row" style="justify-content:flex-start;">
-        <button type="submit" class="primary">{{ t('change_password_btn') }}</button>
-      </div>
-    </form>
-  </div>
+{{ t('backup_title') }}
+{{ t('backup_desc') }}
 
-  <div class="panel" style="margin-top:14px;">
-    <div class="panel-title">{{ t('message_limits') }}</div>
-    <p class="hint" style="margin:0;">{{ t('message_limits_text', max=max_chars, segments=(max_chars / 153) | round(0, 'ceil') | int) }}</p>
-  </div>
-
-  <div class="panel" style="margin-top:14px;">
-    <div class="panel-title">{{ t('backup_title') }}</div>
-    <p class="hint">{{ t('backup_desc') }}</p>
-    <div class="button-row" style="justify-content:flex-start; gap:10px;">
-      <a href="{{ url_for('export_contacts') }}" class="button-link">{{ t('backup_contacts_btn') }}</a>
-      <a href="{{ url_for('export_templates') }}" class="button-link">{{ t('backup_templates_btn') }}</a>
-      <a href="{{ url_for('export_campaigns') }}" class="button-link">{{ t('backup_campaigns_btn') }}</a>
-    </div>
-  </div>
+{{ t('backup_contacts_btn') }} {{ t('backup_templates_btn') }} {{ t('backup_campaigns_btn') }}
 {% endblock %}
