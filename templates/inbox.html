@@ -16,19 +16,24 @@
 
   <div class="conversation-list">
     {% for c in conversations %}
-    <a href="{{ url_for('conversation_detail', phone=c.phone) }}" class="conversation-item {{ 'unread' if c.unread_count > 0 else '' }}">
-      <div class="conversation-top-row">
-        <span class="conversation-name">
-          {{ c.name if c.name else c.phone }}
-          {% if c.name %}<span class="conversation-phone">· {{ c.phone }}</span>{% endif %}
-          {% if c.unread_count > 0 %}<span class="unread-dot"></span>{% endif %}
-        </span>
-        <span class="conversation-time">{{ c.last_timestamp }}</span>
-      </div>
-      <div class="conversation-preview {{ 'unread-preview' if c.unread_count > 0 else '' }}">
-        {% if c.last_direction == 'out' %}{{ t('you_prefix') }} {% endif %}{{ c.last_message }}
-      </div>
-    </a>
+    <div class="conversation-item {{ 'unread' if c.unread_count > 0 else '' }}">
+      <a href="{{ url_for('conversation_detail', phone=c.phone) }}" class="conversation-item-link">
+        <div class="conversation-top-row">
+          <span class="conversation-name">
+            {{ c.name if c.name else c.phone }}
+            {% if c.name %}<span class="conversation-phone">· {{ c.phone }}</span>{% endif %}
+            {% if c.unread_count > 0 %}<span class="unread-dot"></span>{% endif %}
+          </span>
+          <span class="conversation-time">{{ c.last_timestamp }}</span>
+        </div>
+        <div class="conversation-preview {{ 'unread-preview' if c.unread_count > 0 else '' }}">
+          {% if c.last_direction == 'out' %}{{ t('you_prefix') }} {% endif %}{{ c.last_message }}
+        </div>
+      </a>
+      <form method="post" action="{{ url_for('delete_conversation', phone=c.phone) }}" class="conversation-delete-form" onsubmit="return confirm('{{ t('confirm_delete_conversation') }}');">
+        <button type="submit" class="conversation-delete-btn" title="{{ t('delete_conversation_btn') }}">✕</button>
+      </form>
+    </div>
     {% endfor %}
     {% if not conversations %}
     <div class="panel">

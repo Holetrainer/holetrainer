@@ -1932,6 +1932,23 @@ def inject_unread_count():
     return {"unread_message_count": 0}
 
 
+@app.route("/inbox/<phone>/delete", methods=["POST"])
+def delete_conversation(phone):
+    """Deletes every message exchanged with this number, removing the whole
+    conversation from the Inbox list."""
+    with messages_lock:
+        messages = load_messages()
+        remaining = [m for m in messages if m["phone"] != phone]
+        deleted_count = len(messages) - len(remaining)
+        save_messages(remaining)
+
+    if deleted_count:
+        flash(f"Conversation with {phone} deleted ({deleted_count} messages).", "success")
+    else:
+        flash("Conversation not found.", "error")
+    return redirect(url_for("inbox_page"))
+
+
 @app.route("/inbox")
 def inbox_page():
     return render_template(

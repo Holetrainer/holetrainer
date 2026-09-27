@@ -817,17 +817,36 @@ button.primary{
 }
 .conversation-list{display:flex; flex-direction:column; gap:8px;}
 .conversation-item{
-  display:block;
+  display:flex;
+  align-items:stretch;
+  gap:4px;
   background:var(--bg-panel);
   border:1px solid var(--border2);
   border-radius:8px;
   padding:12px 14px;
-  text-decoration:none;
-  color:var(--text);
   position:relative;
 }
 .conversation-item:hover{border-color:var(--accent);}
 .conversation-item.unread{border-left:3px solid var(--accent);}
+.conversation-item-link{
+  flex:1;
+  min-width:0;
+  text-decoration:none;
+  color:var(--text);
+  display:block;
+}
+.conversation-delete-form{margin:0; align-self:flex-start;}
+.conversation-delete-btn{
+  background:none;
+  border:none;
+  color:var(--text-dim);
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+  padding:4px 6px;
+  border-radius:4px;
+}
+.conversation-delete-btn:hover{color:var(--danger); background:rgba(224,82,99,0.12);}
 .conversation-top-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;}
 .conversation-name{font-weight:700; font-size:14px;}
 .conversation-phone{font-size:11px; color:var(--text-dim); font-weight:400;}
