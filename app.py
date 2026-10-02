@@ -24,7 +24,7 @@ CONTACT_FIELDS = ["name", "phone", "city", "opted_out", "consent_source", "conse
 
 # Endpoints reachable without being logged in. The webhook must stay public
 # so Vonage can reach it; static files must stay public for CSS/JS to load.
-PUBLIC_ENDPOINTS = {"login", "setup", "static", "inbound_sms_webhook", "set_language"}
+PUBLIC_ENDPOINTS = {"login", "setup", "static", "inbound_sms_webhook", "set_language", "sms_optin_api"}
 
 
 @app.context_processor
@@ -2248,7 +2248,7 @@ def inbound_sms_webhook():
 
     elif from_number and text in HELP_KEYWORDS:
         help_body = (
-            "HotMedia Messenger: Msg & data rates may apply. "
+            f"{SMS_BRAND_NAME}: Msg & data rates may apply. "
             "Reply STOP to unsubscribe, START to resubscribe. "
             "For support, contact us directly."
         )
@@ -2258,6 +2258,151 @@ def inbound_sms_webhook():
 
     return ("", 204)
 
+
+
+# ---------------------------------------------------------------------------
+# Public web opt-in (form hosted on jayplayboy.com)
+# ---------------------------------------------------------------------------
+
+# Brand shown to recipients. Must match the 10DLC brand/campaign sender.
+SMS_BRAND_NAME = os.getenv("SMS_BRAND_NAME", "JP Massage")
+
+# Sites allowed to submit the opt-in form (comma-separated).
+OPTIN_ALLOWED_ORIGINS = [
+    o.strip() for o in os.getenv(
+        "OPTIN_ALLOWED_ORIGINS", "https://jayplayboy.com,https://www.jayplayboy.com"
+    ).split(",") if o.strip()
+]
+
+# Keep false until the 10DLC campaign is approved; then set to true in Render.
+OPTIN_SEND_CONFIRMATION = os.getenv("OPTIN_SEND_CONFIRMATION", "false").lower() in ("1", "true", "yes")
+
+OPTIN_LOG_FILE = os.path.join(config.DATA_DIR, "optin_consent_log.csv")
+OPTIN_LOG_FIELDS = ["timestamp_utc", "phone", "consent_version", "consent_text",
+                    "page_url", "ip", "user_agent", "confirmation_sent"]
+
+# Exact text shown next to the checkbox. If the form text changes, add a new
+# version here and update consent_version in the form's script.
+OPTIN_CONSENT_TEXTS = {
+    "v1": (
+        "By checking this box, I agree to receive recurring text messages from "
+        "JP Massage about appointment confirmations, reminders, customer support, "
+        "and promotional offers at the phone number provided. Consent is not a "
+        "condition of purchase. Message frequency varies. Message and data rates "
+        "may apply. Reply HELP for help, STOP to opt out. We will not share your "
+        "mobile information with third parties for promotional or marketing purposes."
+    )
+}
+
+_optin_lock = threading.Lock()
+
+
+def append_optin_log(row):
+    is_new = not os.path.exists(OPTIN_LOG_FILE)
+    with open(OPTIN_LOG_FILE, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=OPTIN_LOG_FIELDS)
+        if is_new:
+            writer.writeheader()
+        writer.writerow({k: row.get(k, "") for k in OPTIN_LOG_FIELDS})
+
+
+def _optin_cors(resp):
+    origin = request.headers.get("Origin")
+    if origin in OPTIN_ALLOWED_ORIGINS:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Vary"] = "Origin"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+
+@app.route("/api/sms-optin", methods=["POST", "OPTIONS"])
+def sms_optin_api():
+    """Receives the public opt-in form, adds/updates the contact as
+    subscribed, and stores proof of consent in optin_consent_log.csv."""
+    if request.method == "OPTIONS":
+        return _optin_cors(app.make_response(("", 204)))
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+
+    def reply(payload, status=200):
+        return _optin_cors(app.make_response((jsonify(payload), status)))
+
+    # Honeypot field: real people never fill it.
+    if data.get("website"):
+        return reply({"ok": True, "message": "You're subscribed!"})
+
+    digits = re.sub(r"\D", "", str(data.get("phone", "")))
+    if len(digits) == 10:
+        digits = "1" + digits
+    if not (len(digits) == 11 and digits.startswith("1")):
+        return reply({"ok": False, "error": "Please enter a valid US mobile number."}, 400)
+    phone = "+" + digits
+
+    if str(data.get("consent", "")).lower() not in ("true", "on", "1", "yes"):
+        return reply({"ok": False, "error": "Please check the consent box to subscribe."}, 400)
+
+    version = str(data.get("consent_version", "v1"))
+    consent_text = OPTIN_CONSENT_TEXTS.get(version)
+    if not consent_text:
+        return reply({"ok": False, "error": "Invalid form version."}, 400)
+
+    now = datetime.utcnow()
+    fwd = request.headers.get("X-Forwarded-For", "")
+    ip = fwd.split(",")[0].strip() if fwd else (request.remote_addr or "")
+
+    with _optin_lock:
+        all_contacts = load_contacts()
+        target = next((c for c in all_contacts if c["phone"] == phone), None)
+        if target:
+            target["opted_out"] = "False"
+            target["consent_source"] = f"Web form opt-in ({version})"
+            target["consent_date"] = now.strftime("%Y-%m-%d")
+        else:
+            all_contacts.append({
+                "name": "",
+                "phone": phone,
+                "city": city_from_phone(phone),
+                "opted_out": "False",
+                "consent_source": f"Web form opt-in ({version})",
+                "consent_date": now.strftime("%Y-%m-%d"),
+            })
+        save_contacts(all_contacts)
+
+    sent = False
+    if OPTIN_SEND_CONFIRMATION:
+        confirmation = (
+            f"{SMS_BRAND_NAME}: You're subscribed to appointment reminders and offers. "
+            "Msg frequency varies. Msg & data rates may apply. "
+            "Reply HELP for help, STOP to opt out."
+        )
+        success, detail, provider = send_single_sms(phone, confirmation)
+        sent = success and provider != "simulation"
+        log_message(phone, "out", confirmation, status="delivered" if success else "failed",
+                    error_detail="" if success else f"{provider}: {detail}")
+
+    with _optin_lock:
+        append_optin_log({
+            "timestamp_utc": now.isoformat(timespec="seconds") + "Z",
+            "phone": phone,
+            "consent_version": version,
+            "consent_text": consent_text,
+            "page_url": str(data.get("page_url") or request.headers.get("Referer", ""))[:500],
+            "ip": ip,
+            "user_agent": request.headers.get("User-Agent", "")[:500],
+            "confirmation_sent": "yes" if sent else "no",
+        })
+
+    return reply({"ok": True, "message": "You're subscribed! Reply STOP anytime to opt out."})
+
+
+@app.route("/export/optin-log")
+def export_optin_log():
+    """Download the consent proof log (login required)."""
+    if not os.path.exists(OPTIN_LOG_FILE):
+        flash("No web opt-ins recorded yet.", "error")
+        return redirect(url_for("optouts_page"))
+    return send_file(OPTIN_LOG_FILE, as_attachment=True, download_name="optin_consent_log.csv")
 
 
 if __name__ == "__main__":
