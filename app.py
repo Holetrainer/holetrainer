@@ -2246,6 +2246,10 @@ def inbound_sms_webhook():
             })
         save_contacts(all_contacts)
 
+        success, detail, provider = send_single_sms(from_number, OPTIN_CONFIRMATION_SMS)
+        log_message(from_number, "out", OPTIN_CONFIRMATION_SMS, status="delivered" if success else "failed",
+                    error_detail="" if success else f"{provider}: {detail}")
+
     elif from_number and text in HELP_KEYWORDS:
         help_body = (
             f"{SMS_BRAND_NAME}: Msg & data rates may apply. "
@@ -2293,6 +2297,14 @@ OPTIN_CONSENT_TEXTS = {
         "mobile information with third parties for promotional or marketing purposes."
     )
 }
+
+# Sent after a web-form opt-in and after a START keyword. Must match the
+# "Opt-in message" registered in the Telnyx 10DLC campaign word for word.
+OPTIN_CONFIRMATION_SMS = (
+    f"{SMS_BRAND_NAME}: Thanks for subscribing to appointment confirmations, reminders, "
+    "customer support & promotional offers! Msg frequency varies. Msg&data rates may apply. "
+    "Consent is not a condition of purchase. Reply HELP for help, STOP to opt out."
+)
 
 _optin_lock = threading.Lock()
 
@@ -2371,11 +2383,7 @@ def sms_optin_api():
 
     sent = False
     if OPTIN_SEND_CONFIRMATION:
-        confirmation = (
-            f"{SMS_BRAND_NAME}: You're subscribed to appointment reminders and offers. "
-            "Msg frequency varies. Msg & data rates may apply. "
-            "Reply HELP for help, STOP to opt out."
-        )
+        confirmation = OPTIN_CONFIRMATION_SMS
         success, detail, provider = send_single_sms(phone, confirmation)
         sent = success and provider != "simulation"
         log_message(phone, "out", confirmation, status="delivered" if success else "failed",
