@@ -2252,9 +2252,8 @@ def inbound_sms_webhook():
 
     elif from_number and text in HELP_KEYWORDS:
         help_body = (
-            f"{SMS_BRAND_NAME}: Msg & data rates may apply. "
-            "Reply STOP to unsubscribe, START to resubscribe. "
-            "For support, contact us directly."
+            f"{SMS_BRAND_NAME}: For help, email support@jayplayboy.com or visit jayplayboy.com. "
+            "Msg frequency varies. Msg&data rates may apply. Reply STOP to opt out."
         )
         success, detail, provider = send_single_sms(from_number, help_body)
         log_message(from_number, "out", help_body, status="delivered" if success else "failed",
