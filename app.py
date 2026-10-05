@@ -2294,14 +2294,22 @@ OPTIN_CONSENT_TEXTS = {
         "condition of purchase. Message frequency varies. Message and data rates "
         "may apply. Reply HELP for help, STOP to opt out. We will not share your "
         "mobile information with third parties for promotional or marketing purposes."
-    )
+    ),
+    # Marketing-only wording requested by Telnyx for campaign CR2DQGS (MARKETING use case).
+    "v2": (
+        "I agree to receive recurring marketing text messages from JP Massage, including "
+        "special offers, promotions, pricing updates, and new service announcements, at the "
+        "phone number provided. Consent is not a condition of purchase. Message frequency may "
+        "vary. Message and data rates may apply. Reply STOP to opt out. Reply HELP for help. "
+        "We will not share mobile information with third parties for promotional or marketing purposes."
+    ),
 }
 
 # Sent after a web-form opt-in and after a START keyword. Must match the
 # "Opt-in message" registered in the Telnyx 10DLC campaign word for word.
 OPTIN_CONFIRMATION_SMS = (
-    f"{SMS_BRAND_NAME}: Thanks for subscribing to appointment confirmations, reminders, "
-    "customer support & promotional offers! Msg frequency varies. Msg&data rates may apply. "
+    f"{SMS_BRAND_NAME}: Thanks for subscribing to marketing texts with special offers, "
+    "promotions & new service updates! Msg frequency varies. Msg&data rates may apply. "
     "Consent is not a condition of purchase. Reply HELP for help, STOP to opt out."
 )
 
