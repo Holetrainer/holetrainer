@@ -999,6 +999,63 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
 }
 .plan-body{position:relative;z-index:3;margin-top:0!important;padding-top:12px!important}
 @media (max-width:640px){.dur,.plan.best .dur{top:auto!important;bottom:8px!important;right:6px!important}.plan-body{padding-top:8px!important}}
+
+/* =================== v10: polished 4-step booking =================== */
+.stepper{grid-column:1/-1;position:relative;list-style:none;margin:0 0 4px;padding:0;display:grid;grid-template-columns:repeat(4,1fr)}
+.stepper li{position:relative;z-index:1;display:grid;justify-items:center;gap:6px;font-size:.72rem;font-weight:600;color:var(--dim)}
+.stepper li i{font-style:normal;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:.8rem;font-weight:700;background:var(--raise);border:2px solid var(--line);color:var(--muted);transition:.3s}
+.stepper li.done i{background:var(--hot);border-color:transparent;color:transparent;position:relative}
+.stepper li.done i::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:.85rem}
+.stepper li.cur i{border-color:var(--gold);color:var(--gold);box-shadow:0 0 0 5px color-mix(in srgb,var(--gold) 18%,transparent)}
+.stepper li.done span,.stepper li.cur span{color:var(--ink)}
+.stepper-bar{position:absolute;left:12.5%;right:12.5%;top:14px;height:3px;border-radius:3px;background:var(--line)}
+.stepper-bar b{display:block;height:100%;width:0;border-radius:3px;background:var(--hot);transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.step{gap:12px;padding:16px}
+.step.done{border-color:color-mix(in srgb,var(--gold) 30%,var(--line))}
+#st-4.done .step-h i{background:var(--hot);border-color:transparent;color:#fff}
+.svc-chips button{padding:10px 10px 10px 10px;grid-template-columns:auto 1fr;column-gap:10px;align-items:center}
+.svc-chips .svc-ph{grid-row:1/span 3;width:54px;height:54px;border-radius:12px;object-fit:cover;transition:opacity .3s}
+.svc-chips b,.svc-chips small,.svc-chips em{grid-column:2}
+.svc-chips em{margin-top:2px;font-size:1.3rem}
+.svc-chips button[aria-pressed="true"] .svc-ph{box-shadow:0 0 0 2px var(--gold)}
+.svc-chips{grid-template-columns:repeat(2,1fr)!important}
+.tgroup+.tgroup{margin-top:10px}
+.tg-h{display:block;font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.tg-row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+#times-day{display:block}
+.times.late{grid-template-columns:repeat(6,1fr)}
+.receipt{position:relative;background:var(--surface)!important;border:1px dashed color-mix(in srgb,var(--gold) 40%,var(--line))!important;padding:16px 18px!important}
+.receipt::before,.receipt::after{content:"";position:absolute;top:50%;width:18px;height:18px;margin-top:-9px;border-radius:50%;background:var(--surface);border:1px dashed color-mix(in srgb,var(--gold) 40%,var(--line))}
+.receipt::before{left:-10px;clip-path:inset(0 0 0 50%)}.receipt::after{right:-10px;clip-path:inset(0 50% 0 0)}
+.rc-h{display:flex;justify-content:space-between;gap:10px;font-weight:700;font-size:.86rem;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+.rc-city{color:var(--gold);font-weight:600}
+/* sticky bar */
+.bookbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:none;align-items:center;gap:12px;padding:10px max(14px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);transform:translateY(110%);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.bookbar.on{transform:none}
+.bb-info{flex:1;min-width:0}
+.bb-info small{display:block;font-size:.7rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb-info b{font-family:var(--display);font-size:1.6rem;line-height:1.1;background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bookbar .btn{flex:none;min-height:46px;padding:0 1.1em;font-size:.88rem}
+.fab{transition:opacity .3s,transform .3s}
+.fab.hide{opacity:0;transform:scale(.6);pointer-events:none}
+@media (max-width:820px){.bookbar{display:flex}}
+@media (max-width:640px){
+  .stepper li{font-size:.66rem}
+  .stepper li i{width:28px;height:28px}
+  .svc-chips .svc-ph{width:46px;height:46px;border-radius:10px}
+  .svc-chips em{font-size:1.15rem}
+  .svc-chips small{font-size:.66rem}
+  .svc-chips b{font-size:.95rem!important}
+  .tg-row{grid-template-columns:repeat(4,1fr)}
+  .times.late{grid-template-columns:repeat(3,1fr)}
+  #book{padding-bottom:110px}
+}
+.tg-row,.times.late{grid-template-columns:repeat(4,1fr)!important}
+#times-day{display:grid!important;grid-template-columns:1fr 1fr;gap:12px 16px}
+.tgroup+.tgroup{margin-top:0}
+.slot.lateslot{border-color:color-mix(in srgb,var(--rose) 45%,var(--line));background:color-mix(in srgb,var(--rose) 10%,var(--bg2))}
+.slot.lateslot[aria-selected="true"]{background:var(--hot);border-color:transparent}
+@media (max-width:640px){#times-day{grid-template-columns:1fr;gap:10px}}
 </style>
 </head>
 <body>
@@ -1175,12 +1232,19 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
         <div>
           <div class="pane" id="pane-req" role="tabpanel" aria-labelledby="tab-req">
             <form id="req-form" novalidate>
+              <ol class="stepper full" id="stepper" aria-label="Booking progress">
+                <li data-s="1"><i>1</i><span>Session</span></li>
+                <li data-s="2"><i>2</i><span>Day</span></li>
+                <li data-s="3"><i>3</i><span>Time</span></li>
+                <li data-s="4"><i>4</i><span>Details</span></li>
+                <span class="stepper-bar"><b id="stepper-fill"></b></span>
+              </ol>
               <div class="step full" id="st-1"><div class="step-h"><i>1</i><span>Choose your session</span></div>
                 <div class="svc-chips" id="svc-chips" role="radiogroup" aria-label="Session">
-                  <button type="button" data-svc="deep90" aria-pressed="true"><span class="tag">Best value</span><b>The Deep Dive</b><small>90 min</small><em data-svcp="deep90">$150</em></button>
-                  <button type="button" data-svc="full60" aria-pressed="false"><b>Full-Body Reset</b><small>60 min</small><em data-svcp="full60">$200</em></button>
-                  <button type="button" data-svc="full120" aria-pressed="false"><b>The Long Unwind</b><small>2 hours</small><em data-svcp="full120">$400</em></button>
-                  <button type="button" data-svc="group" aria-pressed="false"><b>Couples / group</b><small>2+ people</small><em>Ask</em></button>
+                  <button type="button" data-svc="deep90" aria-pressed="true"><img class="svc-ph" src="img/g3.jpg" data-in="img/g3.jpg" data-out="img/about.jpg" alt="" loading="lazy"><span class="tag">Best value</span><b>The Deep Dive</b><small>90 min</small><em data-svcp="deep90">$150</em></button>
+                  <button type="button" data-svc="full60" aria-pressed="false"><img class="svc-ph" src="img/g2.jpg" data-in="img/g2.jpg" data-out="img/hero.jpg" alt="" loading="lazy"><b>Full-Body Reset</b><small>60 min</small><em data-svcp="full60">$200</em></button>
+                  <button type="button" data-svc="full120" aria-pressed="false"><img class="svc-ph" src="img/g6.jpg" data-in="img/g6.jpg" data-out="img/g1.jpg" alt="" loading="lazy"><b>The Long Unwind</b><small>2 hours</small><em data-svcp="full120">$400</em></button>
+                  <button type="button" data-svc="group" aria-pressed="false"><img class="svc-ph" src="img/g4.jpg" data-in="img/g4.jpg" data-out="img/g4.jpg" alt="" loading="lazy"><b>Couples / group</b><small>2+ people</small><em>Ask</em></button>
                 </div>
                 <select id="f-svc" name="service" class="vh" tabindex="-1" aria-hidden="true">
                   <option value="deep90" data-i18n="o.deep90">The Deep Dive · 90 min</option>
@@ -1199,7 +1263,7 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
               </div>
               <div class="step full" id="st-3"><div class="step-h"><i>3</i><span>Pick a time</span><output class="step-v" id="v-time"></output></div>
                 <div class="times" id="times-day" role="listbox" aria-label="Daytime"></div>
-                <button type="button" class="late-toggle" id="late-toggle" aria-expanded="false">🌙 Late night times <span>· $60 deposit</span></button>
+                <button type="button" class="late-toggle" id="late-toggle" aria-expanded="false">✨ After midnight <span>· $60 deposit</span></button>
                 <div class="times late" id="times-late" role="listbox" aria-label="Late night" hidden></div>
                 <input type="hidden" id="f-time" name="time">
               </div>
@@ -1210,7 +1274,8 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
                 </div>
                 <div class="f"><label for="f-msg">Notes <span class="opt">(optional)</span></label><textarea id="f-msg" name="message" rows="2" placeholder="Pressure, focus areas, hotel name…"></textarea></div>
               </div>
-              <div class="summary" aria-live="polite">
+              <div class="summary receipt" aria-live="polite">
+                <div class="rc-h"><span>🧾 Your booking</span><span class="rc-city" id="s-city"></span></div>
                 <div class="row"><span data-i18n="s.session">Session</span><b id="s-svc">—</b></div>
                 <div class="row"><span data-i18n="s.when">When</span><b id="s-when">—</b></div>
                 <div class="row"><span data-i18n="s.dep">Deposit to confirm</span><b id="s-dep">$20</b></div>
@@ -1326,6 +1391,10 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
   </div>
 </footer>
 
+<div class="bookbar" id="bookbar" aria-hidden="true">
+  <div class="bb-info"><small id="bb-sub">The Deep Dive · In-call</small><b id="bb-total">$150</b></div>
+  <button type="button" class="btn btn-wa" id="bb-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg><span id="bb-label">Pick a day</span></button>
+</div>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer"><img id="lb-img" alt=""><button type="button" class="x" id="lb-x" aria-label="Close">×</button><button type="button" class="pv" id="lb-pv" aria-label="Previous">‹</button><button type="button" class="nx" id="lb-nx" aria-label="Next">›</button><span class="count" id="lb-c"></span></div>
 
 <a class="fab wa-link" href="#" target="_blank" rel="noopener" aria-label="WhatsApp"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7a11.6 11.6 0 0 1-4.6-4.1c-.3-.5-1.2-1.7-1.2-3.2s.8-2.3 1.1-2.6c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.2z"/></svg></a>
@@ -1676,8 +1745,9 @@ $("theme-btn").addEventListener("click",()=>{
     const iso=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());const city=cityFor(iso);
     html+=`<button type="button" class="day" data-iso="${iso}"><small>${i===0?"Today":d.toLocaleDateString("en-US",{weekday:"short"})}</small><b>${d.getDate()}</b><em>${d.toLocaleDateString("en-US",{month:"short"})}</em>${city?`<i>${code(city)}</i>`:""}</button>`;}
   days.innerHTML=html;
-  const hrs=[8,9,10,11,12,13,14,15,16,17,18,19,20,21],late=[22,23,0,1,2,3];
-  tD.innerHTML=hrs.map(h=>`<button type="button" class="slot" data-t="${pad(h)}:00">${lab(h)}</button>`).join("");
+  const hrs=[],late=[0,1,2,3];
+  const grp=(t,ic,arr)=>`<div class="tgroup"><span class="tg-h">${ic} ${t}</span><div class="tg-row">${arr.map(h=>`<button type="button" class="slot${isLate(pad(h)+":00")?" lateslot":""}" data-t="${pad(h)}:00">${lab(h)}</button>`).join("")}</div></div>`;
+  tD.innerHTML=grp("Morning","🌅",[8,9,10,11])+grp("Afternoon","☀️",[12,13,14,15])+grp("Evening","🌆",[16,17,18,19])+grp("Night","🌙",[20,21,22,23]);
   tL.innerHTML=late.map(h=>`<button type="button" class="slot" data-t="${pad(h)}:00">${lab(h)}</button>`).join("");
   const fire=el=>el.dispatchEvent(new Event("input",{bubbles:true}));
   window.syncChips=function(){
@@ -1696,6 +1766,14 @@ $("theme-btn").addEventListener("click",()=>{
   const chips=$("svc-chips");
   chips.addEventListener("click",e=>{const b=e.target.closest("[data-svc]");if(!b)return;form.service.value=b.dataset.svc;updateSummary();});
   window.syncBooking=function(){
+    const w0=form.where.value;document.querySelectorAll(".svc-ph").forEach(im=>{const v=im.dataset[w0];if(im.getAttribute("src")!==v)im.src=v;});
+    const st=[true,!!form.date.value,!!form.time.value,!!form.name.value.trim()];
+    document.querySelectorAll("#stepper li").forEach((li,k)=>{li.classList.toggle("done",st[k]);li.classList.toggle("cur",st.indexOf(false)===k);});
+    const n=st.filter(Boolean).length;$("stepper-fill").style.width=((n-1)/3*100)+"%";
+    $("st-4").classList.toggle("done",st[3]);
+    const cc=current();$("s-city").textContent=form.city.value?"📍 "+form.city.value:"";
+    $("bb-total").textContent=cc.price?"$"+cc.price:"Ask";$("bb-sub").textContent=cc.svcLabel.split(" · ")[0]+" · "+cc.whereLabel+(cc.date?" · "+fmt(cc.date,{month:"short",day:"numeric"}):"")+(cc.time?" "+tLabel(cc.time):"");
+    $("bb-label").textContent=!st[1]?"Pick a day":!st[2]?"Pick a time":!st[3]?"Add your name":"Send on WhatsApp";
     chips.querySelectorAll("[data-svc]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.svc===form.service.value));
     const w=form.where.value;document.querySelectorAll("[data-svcp]").forEach(e=>{const p=PRICES[e.dataset.svcp];if(p)e.textContent="$"+p[w];});
     $("v-day").textContent=form.date.value?fmt(form.date.value,{weekday:"short",month:"short",day:"numeric"}):"";
@@ -1744,6 +1822,13 @@ $("f-name").addEventListener("input",()=>{$("pay-ref").textContent=payRef();});
 })();
 
 ["img/about.jpg","img/hero.jpg","img/g1.jpg"].forEach(u=>{const i=new Image();i.src=u;});
+
+/* ---------- Sticky booking bar (phones) ---------- */
+(function(){const bar=$("bookbar"),fab=document.querySelector(".fab");
+  if("IntersectionObserver" in window){new IntersectionObserver(es=>{const on=es[0].isIntersecting;bar.classList.toggle("on",on);bar.setAttribute("aria-hidden",!on);if(fab)fab.classList.toggle("hide",on);},{threshold:.05}).observe(form);}
+  $("bb-send").addEventListener("click",()=>form.requestSubmit());
+  form.name.addEventListener("input",()=>syncBooking());
+})();
 
 let saved="en";
 setLang(saved);
