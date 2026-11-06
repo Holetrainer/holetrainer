@@ -971,6 +971,34 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
 .hero-photo{z-index:0}
 .hero .hero-in{pointer-events:none}.hero .hero-in *{pointer-events:auto}
 .ribbon-strip{position:relative}
+
+/* In-call / Out-call: eye-catching */
+.mode{display:grid!important;grid-template-columns:1fr 1fr;gap:12px;max-width:620px!important;margin:0 auto 28px!important;padding:0!important;background:none!important;border:0!important;border-radius:0!important}
+.mode button{position:relative;display:flex!important;align-items:center;gap:12px;text-align:left;padding:14px 16px!important;border-radius:20px!important;border:1.5px solid var(--line)!important;background:var(--surface)!important;color:var(--ink);cursor:pointer;overflow:hidden;transition:transform .25s,box-shadow .3s,border-color .3s}
+.mode button:hover{transform:translateY(-2px);border-color:var(--gold)!important}
+.mode .mi{flex:none;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;font-size:1.6rem;background:var(--raise)}
+.mode .mt{display:grid;gap:1px;min-width:0;flex:1}
+.mode button b{font-family:var(--display);font-size:1.4rem!important;font-weight:600;color:var(--ink)!important;line-height:1}
+.mode button small{font-size:.78rem!important;color:var(--muted)!important}
+.mode button em{font-style:normal;font-size:.72rem;font-weight:700;letter-spacing:.06em;white-space:nowrap;padding:5px 9px;border-radius:999px;background:var(--raise);color:var(--muted)}
+.mode button[aria-pressed="true"]{background:var(--hot)!important;border-color:transparent!important;box-shadow:0 18px 40px -16px var(--gold),0 0 0 4px color-mix(in srgb,var(--gold) 18%,transparent);transform:translateY(-2px)}
+.mode button[aria-pressed="true"] .mi{background:rgba(255,255,255,.22)}
+.mode button[aria-pressed="true"] b,.mode button[aria-pressed="true"] small{color:#fff!important}
+.mode button[aria-pressed="true"] em{background:rgba(255,255,255,.22);color:#fff}
+.mode button[aria-pressed="true"]::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.25) 50%,transparent 70%);transform:translateX(-100%);animation:sheen 2.8s ease-in-out infinite}
+@keyframes sheen{60%,100%{transform:translateX(100%)}}
+.plan-img img{transition:opacity .2s ease,transform .6s}
+.plan-img.swap img{opacity:0;transform:scale(1.05)}
+@media (max-width:640px){
+  .mode{gap:8px;margin-bottom:18px!important}
+  .mode button{flex-direction:column;align-items:flex-start;gap:8px;padding:12px!important;border-radius:16px!important}
+  .mode .mi{width:40px;height:40px;font-size:1.35rem;border-radius:12px}
+  .mode button b{font-size:1.2rem!important}
+  .mode button small{font-size:.72rem!important}
+  .mode button em{position:absolute;top:12px;right:10px;font-size:.62rem;padding:4px 7px}
+}
+.plan-body{position:relative;z-index:3;margin-top:0!important;padding-top:12px!important}
+@media (max-width:640px){.dur,.plan.best .dur{top:auto!important;bottom:8px!important;right:6px!important}.plan-body{padding-top:8px!important}}
 </style>
 </head>
 <body>
@@ -1047,12 +1075,12 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
         <span class="offer" data-i18n="rates.offer">Limited time · my lowest rates ever</span>
       </div>
       <div class="mode" role="group" aria-label="Location">
-        <button type="button" id="mode-in" data-mode="in" aria-pressed="true"><b data-i18n="m.in">In-call</b><small data-i18n="m.in.s">At my place</small></button>
-        <button type="button" id="mode-out" data-mode="out" aria-pressed="false"><b data-i18n="m.out">Out-call</b><small data-i18n="m.out.s">Your home or hotel</small></button>
+        <button type="button" id="mode-in" data-mode="in" aria-pressed="true"><span class="mi" aria-hidden="true">🏠</span><span class="mt"><b data-i18n="m.in">In-call</b><small data-i18n="m.in.s">At my place</small></span><em>from $150</em></button>
+        <button type="button" id="mode-out" data-mode="out" aria-pressed="false"><span class="mi" aria-hidden="true">🏨</span><span class="mt"><b data-i18n="m.out">Out-call</b><small data-i18n="m.out.s">Your home or hotel</small></span><em>from $200</em></button>
       </div>
       <div class="plans" id="plans">
         <article class="plan best">
-          <div class="plan-img"><img class="blur" src="img/g3.jpg" alt="" loading="lazy" aria-hidden="true"><img src="img/g3.jpg" alt="" loading="lazy"><span class="ribbon" data-i18n="pl.offer">Best value</span><span class="dur">90 min</span></div>
+          <div class="plan-img" data-in="img/g3.jpg" data-out="img/about.jpg"><img class="blur" src="img/g3.jpg" alt="" loading="lazy" aria-hidden="true"><img src="img/g3.jpg" alt="" loading="lazy"><span class="ribbon" data-i18n="pl.offer">Best value</span><span class="dur">90 min</span></div>
           <div class="plan-body">
             <h3 data-i18n="pl.1.t">The Deep Dive</h3>
             <p class="k" data-i18n="pl.1.k">Deep tissue · 90 min</p>
@@ -1061,7 +1089,7 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
           </div>
         </article>
         <article class="plan">
-          <div class="plan-img"><img class="blur" src="img/g2.jpg" alt="" loading="lazy" aria-hidden="true"><img src="img/g2.jpg" alt="" loading="lazy"><span class="dur" data-i18n="pl.1h">60 min</span></div>
+          <div class="plan-img" data-in="img/g2.jpg" data-out="img/hero.jpg"><img class="blur" src="img/g2.jpg" alt="" loading="lazy" aria-hidden="true"><img src="img/g2.jpg" alt="" loading="lazy"><span class="dur" data-i18n="pl.1h">60 min</span></div>
           <div class="plan-body">
             <h3 data-i18n="pl.2.t">Full-Body Reset</h3>
             <p class="k" data-i18n="pl.2.k">Full body · 1 hour</p>
@@ -1070,7 +1098,7 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
           </div>
         </article>
         <article class="plan">
-          <div class="plan-img"><img class="blur" src="img/g6.jpg" alt="" loading="lazy" aria-hidden="true"><img src="img/g6.jpg" alt="" loading="lazy"><span class="dur" data-i18n="pl.2hs">2 hours</span></div>
+          <div class="plan-img" data-in="img/g6.jpg" data-out="img/g1.jpg"><img class="blur" src="img/g6.jpg" alt="" loading="lazy" aria-hidden="true"><img src="img/g6.jpg" alt="" loading="lazy"><span class="dur" data-i18n="pl.2hs">2 hours</span></div>
           <div class="plan-body">
             <h3 data-i18n="pl.3.t">The Long Unwind</h3>
             <p class="k" data-i18n="pl.3.k">Full body · 2 hours</p>
@@ -1486,6 +1514,9 @@ function setMode(m,fromForm){
   mode=m;
   document.querySelectorAll(".mode button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===m));
   document.querySelectorAll(".amount b").forEach(el=>el.textContent=el.dataset[m]);
+  document.querySelectorAll(".plan-img[data-in]").forEach((box,k)=>{const src=box.dataset[m];const imgs=box.querySelectorAll("img");
+    if(imgs[1].getAttribute("src")===src)return;box.classList.add("swap");
+    setTimeout(()=>{imgs.forEach(i=>i.src=src);},180+k*60);setTimeout(()=>box.classList.remove("swap"),420+k*60);});
   if(!fromForm){$(m==="in"?"w-in":"w-out").checked=true; updateSummary();}
 }
 document.querySelectorAll(".mode button").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
@@ -1711,6 +1742,8 @@ $("f-name").addEventListener("input",()=>{$("pay-ref").textContent=payRef();});
     lbShow(i);lb.classList.add("open");document.body.style.overflow="hidden";$("lb-x").focus();
   },true);
 })();
+
+["img/about.jpg","img/hero.jpg","img/g1.jpg"].forEach(u=>{const i=new Image();i.src=u;});
 
 let saved="en";
 setLang(saved);
