@@ -1056,6 +1056,36 @@ form .actions .btn-wa{font-size:1rem;min-height:52px}
 .slot.lateslot{border-color:color-mix(in srgb,var(--rose) 45%,var(--line));background:color-mix(in srgb,var(--rose) 10%,var(--bg2))}
 .slot.lateslot[aria-selected="true"]{background:var(--hot);border-color:transparent}
 @media (max-width:640px){#times-day{grid-template-columns:1fr;gap:10px}}
+
+/* =================== v11: calmer, one-accent palette =================== */
+:root{--gold:#d8647f;--gold-2:#d8647f;--rose:#a3879a;--hot:linear-gradient(0deg,var(--gold),var(--gold))}
+:root[data-theme="light"]{--gold:#b8456a;--gold-2:#b8456a;--rose:#8a6f82}
+body,:root[data-theme="light"] body{background:var(--bg)!important}
+.btn-gold{background:var(--gold)!important;color:#fff;box-shadow:none!important;text-shadow:none}
+.btn-gold:hover{filter:brightness(1.08)}
+.hero h1 em{animation:none}
+.tape{background:var(--surface)!important;transform:none!important;margin:0!important;box-shadow:none!important;border-block:1px solid var(--line)}
+.tape span{color:var(--ink)!important;font-size:clamp(1rem,2.2vw,1.35rem)!important}
+.tape span b{color:var(--gold);opacity:1}
+.plan.best,.plan:hover,.tk:hover,.tk-now,.mode button[aria-pressed="true"],.svc-chips button[aria-pressed="true"]{box-shadow:none!important}
+.mode button[aria-pressed="true"]::after{display:none}
+.ribbon,.svc-chips .tag{background:var(--gold)!important}
+.gate .seal{box-shadow:0 0 0 6px color-mix(in srgb,var(--gold) 15%,transparent)!important}
+.gate{background:rgba(6,3,7,.95)!important}
+.big-plane{filter:none}
+.rt-line.active{background:var(--gold)!important}
+.offer{background:transparent!important;border-color:var(--line)!important;color:var(--muted)!important}
+.status i,.chip.live{animation:none}
+.fab{box-shadow:0 8px 20px -10px rgba(0,0,0,.5)!important}
+.now-card::before{animation:none}
+.plan.best{background:var(--surface)!important;border-color:var(--gold)!important}
+.plan.best .plan-img::after{background:linear-gradient(180deg,transparent 78%,var(--surface))!important}
+.tk-now{background:var(--surface)!important}
+.tk{background:var(--surface)!important}
+.pay-box,.pay-box.late{background:var(--bg2)!important}
+.tier{background:transparent!important}
+.stepper li.cur i{box-shadow:none}
+.step.missing{box-shadow:none}
 </style>
 </head>
 <body>
@@ -1524,7 +1554,7 @@ const cityFor=iso=>{const s=TOUR.find(([,a,b])=>a<=iso&&iso<=b);return s?s[0]:""
 /* ---------- Tour ---------- */
 const CODES={"San Francisco":"SFO","LA / Hollywood":"LAX","San Diego":"SAN","Palm Springs":"PSP","Phoenix":"PHX","Los Angeles":"LAX","Las Vegas":"LAS"};
 const code=c=>CODES[c]||c.replace(/[^A-Za-z]/g,"").slice(0,3).toUpperCase();
-const HUES=["#ff3d7f","#b65cff","#ff9b6a","#ff6fb5"];
+const HUES=["#d8647f","#a99aa6","#c4a07a","#8f9bb3"];
 let renderTour=function(){
   const today=todayISO();
   const up=TOUR.filter(([,,b])=>b>=today);
