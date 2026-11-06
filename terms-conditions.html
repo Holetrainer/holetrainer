@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terms & Conditions · JayPlay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=DM+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<header><div class="wrap"><a class="logo" href="index.html">Jay<em>Play</em></a>
+<div class="lang" role="group" aria-label="Language"><button type="button" id="b-en" data-l="en" aria-pressed="true">EN</button><button type="button" id="b-es" data-l="es" aria-pressed="false">ES</button></div></div></header>
+<nav class="tabs" aria-label="Legal pages"><div class="wrap">
+<a href="privacy-policy.html" data-p="privacy-policy.html" data-en="Privacy" data-es="Privacidad">Privacy</a>
+<a href="terms-conditions.html" data-p="terms-conditions.html" data-en="Terms" data-es="Términos">Terms</a>
+<a href="sms-terms.html" data-p="sms-terms.html" data-en="SMS Terms" data-es="Términos SMS">SMS Terms</a>
+<a href="sms-signup.html" data-p="sms-signup.html" data-en="SMS Sign-Up" data-es="Suscripción SMS">SMS Sign-Up</a>
+</div></nav>
+<main class="wrap">
+<article lang-block="en">
+<h1>Terms &amp; Conditions</h1><p class="updated">Last updated: November 6, 2026</p>
+<p>By booking a session with JayPlay, operated by HotMedia LLC, you agree to these terms.</p>
+<h2>Services</h2><p>JayPlay provides therapeutic massage (deep tissue, acupressure, Swedish and sports techniques) at our location or at your home or hotel. Services are non-medical and do not replace care from a doctor. Tell us about injuries, conditions or allergies before your session.</p>
+<h2>Eligibility and conduct</h2><p>Clients must be 18 or older. We may end a session immediately, without refund, if a client is intoxicated, disrespectful, unsafe, or requests anything outside professional massage.</p>
+<h2>Bookings and deposits</h2><ul><li>A deposit confirms your appointment: $20 for regular hours and $60 for late-night bookings (10 pm – 7 am).</li><li>The deposit is applied to your session total.</li><li>Rates are listed on the website and may change; the rate confirmed at booking applies.</li></ul>
+<h2>Changes and cancellations</h2><ul><li>Reschedule or cancel at least 24 hours before your appointment to keep your deposit for a new date.</li><li>Cancellations within 24 hours and no-shows forfeit the deposit.</li><li>If we need to cancel, your deposit is refunded in full or moved to a new date.</li></ul>
+<h2>Out-call visits</h2><p>Provide a safe, accurate address. Travel outside the service area may carry an extra fee, agreed before booking.</p>
+<h2>Payments</h2><p>We accept Venmo, Cash App, PayPal, Apple Pay and Zelle. Include your name with each payment.</p>
+<h2>Liability</h2><p>To the extent allowed by law, HotMedia LLC is not liable for indirect damages arising from a session. Our total liability is limited to the amount paid for that session.</p>
+<h2>Contact</h2><p>Questions: <a href="mailto:support@holetrainer.com">support@holetrainer.com</a> · +1 (415) 308-1343</p>
+</article>
+<article lang-block="es" hidden>
+<h1>Términos y condiciones</h1><p class="updated">Última actualización: 6 de noviembre de 2026</p>
+<p>Al reservar una sesión con JayPlay, operado por HotMedia LLC, aceptas estos términos.</p>
+<h2>Servicios</h2><p>JayPlay ofrece masaje terapéutico (tejido profundo, acupresión, sueco y técnicas deportivas) en nuestro espacio o en tu casa u hotel. Los servicios no son médicos ni reemplazan la atención de un doctor. Infórmanos de lesiones, condiciones o alergias antes de tu sesión.</p>
+<h2>Requisitos y conducta</h2><p>Los clientes deben tener 18 años o más. Podemos terminar una sesión de inmediato, sin reembolso, si el cliente está intoxicado, es irrespetuoso, la situación no es segura o pide algo fuera del masaje profesional.</p>
+<h2>Reservas y depósitos</h2><ul><li>Un depósito confirma tu cita: $20 en horario regular y $60 en horario nocturno (10 pm – 7 am).</li><li>El depósito se descuenta del total de tu sesión.</li><li>Las tarifas están en el sitio y pueden cambiar; se respeta la tarifa confirmada al reservar.</li></ul>
+<h2>Cambios y cancelaciones</h2><ul><li>Reprograma o cancela con al menos 24 horas de anticipación para conservar tu depósito para otra fecha.</li><li>Las cancelaciones con menos de 24 horas y las ausencias pierden el depósito.</li><li>Si nosotros cancelamos, te devolvemos el depósito o lo pasamos a otra fecha.</li></ul>
+<h2>Servicio a domicilio</h2><p>Da una dirección segura y correcta. Los traslados fuera del área de servicio pueden tener un costo extra, acordado antes de reservar.</p>
+<h2>Pagos</h2><p>Aceptamos Venmo, Cash App, PayPal, Apple Pay y Zelle. Incluye tu nombre en cada pago.</p>
+<h2>Responsabilidad</h2><p>En la medida que lo permita la ley, HotMedia LLC no responde por daños indirectos derivados de una sesión. Nuestra responsabilidad total se limita al monto pagado por esa sesión.</p>
+<h2>Contacto</h2><p>Dudas: <a href="mailto:support@holetrainer.com">support@holetrainer.com</a> · +1 (415) 308-1343</p>
+</article>
+<a class="back" href="index.html" data-en="← Back to JayPlay" data-es="← Volver a JayPlay">← Back to JayPlay</a>
+</main>
+<footer>© 2026 JayPlay · HotMedia LLC · +1 (415) 308-1343 · support@holetrainer.com</footer>
+<script>
+function setL(l){document.documentElement.lang=l;
+document.querySelectorAll("[lang-block]").forEach(e=>e.hidden=e.getAttribute("lang-block")!==l);
+document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[l]);
+document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===l));
+try{localStorage.setItem("jp-lang",l)}catch(e){}}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>setL(b.dataset.l));
+let s="en";try{s=localStorage.getItem("jp-lang")||((navigator.language||"").startsWith("es")?"es":"en")}catch(e){}
+setL(s);
+const here=location.pathname.split("/").pop()||"";
+document.querySelectorAll(".tabs a").forEach(a=>{if(a.dataset.p===here||(here===""&&false))a.setAttribute("aria-current","page")});
+document.querySelector('.tabs a[data-p="'+PAGE+'"]')?.setAttribute("aria-current","page");
+const PAGE="terms-conditions.html";
+
+</script>
+</body>
+</html>

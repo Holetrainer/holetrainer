@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy · JayPlay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=DM+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<header><div class="wrap"><a class="logo" href="index.html">Jay<em>Play</em></a>
+<div class="lang" role="group" aria-label="Language"><button type="button" id="b-en" data-l="en" aria-pressed="true">EN</button><button type="button" id="b-es" data-l="es" aria-pressed="false">ES</button></div></div></header>
+<nav class="tabs" aria-label="Legal pages"><div class="wrap">
+<a href="privacy-policy.html" data-p="privacy-policy.html" data-en="Privacy" data-es="Privacidad">Privacy</a>
+<a href="terms-conditions.html" data-p="terms-conditions.html" data-en="Terms" data-es="Términos">Terms</a>
+<a href="sms-terms.html" data-p="sms-terms.html" data-en="SMS Terms" data-es="Términos SMS">SMS Terms</a>
+<a href="sms-signup.html" data-p="sms-signup.html" data-en="SMS Sign-Up" data-es="Suscripción SMS">SMS Sign-Up</a>
+</div></nav>
+<main class="wrap">
+<article lang-block="en">
+<h1>Privacy Policy</h1><p class="updated">Last updated: November 6, 2026</p>
+<p>JayPlay is operated by HotMedia LLC ("we", "us"). This policy explains what information we collect when you visit this website, request or book a session, and how we use it.</p>
+<h2>Information we collect</h2><ul><li>Contact details you give us: name, phone number, email address and city.</li><li>Booking details: date, time, session type, location type and any notes you add.</li><li>Basic technical data your browser sends, such as device type and pages visited.</li></ul>
+<h2>How we use it</h2><ul><li>To confirm, schedule, change or cancel your appointment.</li><li>To answer your questions by phone, text, WhatsApp or email.</li><li>To send appointment reminders and, only if you opt in, SMS updates.</li></ul>
+<h2>Services we use</h2><p>Bookings are handled by Google Calendar appointment schedules. Requests may be sent through WhatsApp or our form provider. Each service processes data under its own privacy policy.</p>
+<h2>What we never do</h2><p>We do not sell or rent your personal information. Mobile numbers and SMS opt-in consent are never shared with third parties or affiliates for their marketing.</p>
+<h2>Retention and your choices</h2><p>We keep booking information only as long as needed to provide the service and keep basic records. You can ask us to access, correct or delete your information at any time by contacting us.</p>
+<h2>Discretion</h2><p>All inquiries are handled privately. Only the people who need your details to provide your session can see them.</p>
+<h2>Contact</h2><p>Questions: <a href="mailto:support@holetrainer.com">support@holetrainer.com</a> · +1 (415) 308-1343</p>
+</article>
+<article lang-block="es" hidden>
+<h1>Política de privacidad</h1><p class="updated">Última actualización: 6 de noviembre de 2026</p>
+<p>JayPlay es operado por HotMedia LLC ("nosotros"). Esta política explica qué información recopilamos cuando visitas este sitio, solicitas o reservas una sesión, y cómo la usamos.</p>
+<h2>Información que recopilamos</h2><ul><li>Datos de contacto que nos das: nombre, teléfono, correo y ciudad.</li><li>Datos de la reserva: fecha, hora, tipo de sesión, lugar y notas.</li><li>Datos técnicos básicos de tu navegador, como el tipo de dispositivo y las páginas visitadas.</li></ul>
+<h2>Cómo la usamos</h2><ul><li>Para confirmar, agendar, cambiar o cancelar tu cita.</li><li>Para responder tus preguntas por llamada, texto, WhatsApp o correo.</li><li>Para enviar recordatorios y, solo si lo aceptas, mensajes SMS.</li></ul>
+<h2>Servicios que usamos</h2><p>Las reservas se gestionan con la agenda de citas de Google Calendar. Las solicitudes pueden enviarse por WhatsApp o por nuestro proveedor de formularios. Cada servicio trata los datos según su propia política.</p>
+<h2>Lo que nunca hacemos</h2><p>No vendemos ni alquilamos tu información. Los números de celular y el consentimiento para SMS nunca se comparten con terceros ni afiliados para fines de marketing.</p>
+<h2>Conservación y tus opciones</h2><p>Guardamos la información de reservas solo el tiempo necesario para prestar el servicio. Puedes pedir ver, corregir o borrar tus datos en cualquier momento.</p>
+<h2>Discreción</h2><p>Todas las consultas se manejan en privado. Solo quien necesita tus datos para tu sesión puede verlos.</p>
+<h2>Contacto</h2><p>Dudas: <a href="mailto:support@holetrainer.com">support@holetrainer.com</a> · +1 (415) 308-1343</p>
+</article>
+<a class="back" href="index.html" data-en="← Back to JayPlay" data-es="← Volver a JayPlay">← Back to JayPlay</a>
+</main>
+<footer>© 2026 JayPlay · HotMedia LLC · +1 (415) 308-1343 · support@holetrainer.com</footer>
+<script>
+function setL(l){document.documentElement.lang=l;
+document.querySelectorAll("[lang-block]").forEach(e=>e.hidden=e.getAttribute("lang-block")!==l);
+document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[l]);
+document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===l));
+try{localStorage.setItem("jp-lang",l)}catch(e){}}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>setL(b.dataset.l));
+let s="en";try{s=localStorage.getItem("jp-lang")||((navigator.language||"").startsWith("es")?"es":"en")}catch(e){}
+setL(s);
+const here=location.pathname.split("/").pop()||"";
+document.querySelectorAll(".tabs a").forEach(a=>{if(a.dataset.p===here||(here===""&&false))a.setAttribute("aria-current","page")});
+document.querySelector('.tabs a[data-p="'+PAGE+'"]')?.setAttribute("aria-current","page");
+const PAGE="privacy-policy.html";
+
+</script>
+</body>
+</html>

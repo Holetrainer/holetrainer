@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SMS Sign-Up · JayPlay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=DM+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<header><div class="wrap"><a class="logo" href="index.html">Jay<em>Play</em></a>
+<div class="lang" role="group" aria-label="Language"><button type="button" id="b-en" data-l="en" aria-pressed="true">EN</button><button type="button" id="b-es" data-l="es" aria-pressed="false">ES</button></div></div></header>
+<nav class="tabs" aria-label="Legal pages"><div class="wrap">
+<a href="privacy-policy.html" data-p="privacy-policy.html" data-en="Privacy" data-es="Privacidad">Privacy</a>
+<a href="terms-conditions.html" data-p="terms-conditions.html" data-en="Terms" data-es="Términos">Terms</a>
+<a href="sms-terms.html" data-p="sms-terms.html" data-en="SMS Terms" data-es="Términos SMS">SMS Terms</a>
+<a href="sms-signup.html" data-p="sms-signup.html" data-en="SMS Sign-Up" data-es="Suscripción SMS">SMS Sign-Up</a>
+</div></nav>
+<main class="wrap">
+<article lang-block="en">
+<h1>SMS Sign-Up</h1><p class="updated">Get booking confirmations, reminders and tour dates by text.</p><form id="sms-en" novalidate>
+<label class="f" for="n-en">Name<input type="text" id="n-en" name="name" autocomplete="given-name" required></label>
+<label class="f" for="p-en">Mobile number<input type="tel" id="p-en" name="phone" autocomplete="tel" placeholder="+1 …" required></label>
+<label class="f" for="e-en">Email <input type="email" id="e-en" name="email" autocomplete="email"></label>
+<label class="consent" for="c-en"><input type="checkbox" id="c-en" name="consent" value="yes" required><span>I agree to receive appointment and booking text messages from JayPlay (HotMedia LLC) at the number above. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase. See the <a href='sms-terms.html'>SMS Terms</a> and <a href='privacy-policy.html'>Privacy Policy</a>.</span></label>
+<button class="send" type="submit">Sign up for texts</button>
+<p class="msg" hidden></p>
+</form>
+</article>
+<article lang-block="es" hidden>
+<h1>Suscripción SMS</h1><p class="updated">Recibe confirmaciones, recordatorios y fechas de gira por mensaje de texto.</p><form id="sms-es" novalidate>
+<label class="f" for="n-es">Nombre<input type="text" id="n-es" name="name" autocomplete="given-name" required></label>
+<label class="f" for="p-es">Número de celular<input type="tel" id="p-es" name="phone" autocomplete="tel" placeholder="+1 …" required></label>
+<label class="f" for="e-es">Email <input type="email" id="e-es" name="email" autocomplete="email"></label>
+<label class="consent" for="c-es"><input type="checkbox" id="c-es" name="consent" value="yes" required><span>Acepto recibir mensajes de texto de citas y reservas de JayPlay (HotMedia LLC) en el número indicado. La frecuencia varía. Pueden aplicarse tarifas de mensajes y datos. Responde STOP para cancelar, HELP para ayuda. Aceptar no es requisito de compra. Consulta los <a href='sms-terms.html'>Términos SMS</a> y la <a href='privacy-policy.html'>Política de privacidad</a>.</span></label>
+<button class="send" type="submit">Suscribirme a mensajes</button>
+<p class="msg" hidden></p>
+</form>
+</article>
+<a class="back" href="index.html" data-en="← Back to JayPlay" data-es="← Volver a JayPlay">← Back to JayPlay</a>
+</main>
+<footer>© 2026 JayPlay · HotMedia LLC · +1 (415) 308-1343 · support@holetrainer.com</footer>
+<script>
+function setL(l){document.documentElement.lang=l;
+document.querySelectorAll("[lang-block]").forEach(e=>e.hidden=e.getAttribute("lang-block")!==l);
+document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[l]);
+document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===l));
+try{localStorage.setItem("jp-lang",l)}catch(e){}}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>setL(b.dataset.l));
+let s="en";try{s=localStorage.getItem("jp-lang")||((navigator.language||"").startsWith("es")?"es":"en")}catch(e){}
+setL(s);
+const here=location.pathname.split("/").pop()||"";
+document.querySelectorAll(".tabs a").forEach(a=>{if(a.dataset.p===here||(here===""&&false))a.setAttribute("aria-current","page")});
+document.querySelector('.tabs a[data-p="'+PAGE+'"]')?.setAttribute("aria-current","page");
+const PAGE="sms-signup.html";
+/* Set FORM_ENDPOINT to a Formspree URL linked to vortextraining8@gmail.com to collect sign-ups automatically */
+const FORM_ENDPOINT="";
+const MSG={en:{need:"Add your name, mobile number and check the consent box.",ok:"You're signed up. Reply STOP anytime to opt out.",mail:"Opening your email to finish signing up…",err:"Couldn't send. Text +1 (415) 308-1343 instead."},
+ es:{need:"Escribe tu nombre, celular y marca la casilla de consentimiento.",ok:"Listo, quedaste suscrito. Responde STOP cuando quieras cancelar.",mail:"Abriendo tu correo para terminar la suscripción…",err:"No se pudo enviar. Escribe al +1 (415) 308-1343."}};
+document.querySelectorAll("form").forEach(f=>f.addEventListener("submit",async e=>{
+  e.preventDefault(); const L=f.id.slice(4), m=f.querySelector(".msg"); m.hidden=false;
+  if(!f.name.value.trim()||!f.phone.value.trim()||!f.consent.checked){m.textContent=MSG[L].need;return;}
+  const fd=new FormData(f); fd.append("consent_text",f.querySelector(".consent span").textContent); fd.append("signed_up_at",new Date().toISOString()); fd.append("_subject","JayPlay SMS sign-up");
+  if(FORM_ENDPOINT){try{const r=await fetch(FORM_ENDPOINT,{method:"POST",headers:{Accept:"application/json"},body:fd});m.textContent=r.ok?MSG[L].ok:MSG[L].err;if(r.ok)f.reset();}catch(x){m.textContent=MSG[L].err;}return;}
+  m.textContent=MSG[L].mail;
+  location.href="mailto:vortextraining8@gmail.com?subject="+encodeURIComponent("SMS sign-up · "+f.name.value)+"&body="+encodeURIComponent("Name: "+f.name.value+"\nMobile: "+f.phone.value+"\nEmail: "+f.email.value+"\nConsent: yes ("+new Date().toISOString()+")");
+}));
+</script>
+</body>
+</html>

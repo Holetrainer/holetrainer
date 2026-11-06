@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SMS Terms · JayPlay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&family=DM+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+<header><div class="wrap"><a class="logo" href="index.html">Jay<em>Play</em></a>
+<div class="lang" role="group" aria-label="Language"><button type="button" id="b-en" data-l="en" aria-pressed="true">EN</button><button type="button" id="b-es" data-l="es" aria-pressed="false">ES</button></div></div></header>
+<nav class="tabs" aria-label="Legal pages"><div class="wrap">
+<a href="privacy-policy.html" data-p="privacy-policy.html" data-en="Privacy" data-es="Privacidad">Privacy</a>
+<a href="terms-conditions.html" data-p="terms-conditions.html" data-en="Terms" data-es="Términos">Terms</a>
+<a href="sms-terms.html" data-p="sms-terms.html" data-en="SMS Terms" data-es="Términos SMS">SMS Terms</a>
+<a href="sms-signup.html" data-p="sms-signup.html" data-en="SMS Sign-Up" data-es="Suscripción SMS">SMS Sign-Up</a>
+</div></nav>
+<main class="wrap">
+<article lang-block="en">
+<h1>SMS Terms</h1><p class="updated">Last updated: November 6, 2026</p>
+<div class="box"><p><b>Program:</b> JayPlay appointment and booking messages, operated by HotMedia LLC, sent from +1 (415) 308-1343.</p></div>
+<h2>What you'll receive</h2><p>Appointment confirmations, reminders, schedule and tour-date updates, and replies to your booking requests.</p>
+<h2>Frequency</h2><p>Message frequency varies, usually up to 8 messages per month.</p>
+<h2>Costs</h2><p>Message and data rates may apply. Check with your mobile carrier.</p>
+<h2>Opt out and help</h2><p>Reply <b>STOP</b> at any time to stop receiving messages. You'll get one final confirmation and no more texts. Reply <b>HELP</b> for help, or contact support@holetrainer.com.</p>
+<h2>Consent</h2><p>Consent to receive texts is not a condition of booking or purchase.</p>
+<h2>Carriers</h2><p>Carriers are not liable for delayed or undelivered messages.</p>
+<h2>Privacy</h2><p>Mobile information will not be shared with third parties or affiliates for marketing or promotional purposes. See our <a href="privacy-policy.html">Privacy Policy</a>.</p>
+<h2>Contact</h2><p>Questions: <a href="mailto:support@holetrainer.com">support@holetrainer.com</a> · +1 (415) 308-1343</p>
+</article>
+<article lang-block="es" hidden>
+<h1>Términos SMS</h1><p class="updated">Última actualización: 6 de noviembre de 2026</p>
+<div class="box"><p><b>Programa:</b> mensajes de citas y reservas de JayPlay, operado por HotMedia LLC, enviados desde +1 (415) 308-1343.</p></div>
+<h2>Qué recibirás</h2><p>Confirmaciones y recordatorios de citas, cambios de horario y fechas de gira, y respuestas a tus solicitudes.</p>
+<h2>Frecuencia</h2><p>La frecuencia varía, normalmente hasta 8 mensajes al mes.</p>
+<h2>Costos</h2><p>Pueden aplicarse tarifas de mensajes y datos. Consulta con tu operador.</p>
+<h2>Cancelar y ayuda</h2><p>Responde <b>STOP</b> en cualquier momento para dejar de recibir mensajes. Recibirás una confirmación final y ningún mensaje más. Responde <b>HELP</b> para ayuda, o escribe a support@holetrainer.com.</p>
+<h2>Consentimiento</h2><p>Aceptar mensajes no es requisito para reservar ni comprar.</p>
+<h2>Operadores</h2><p>Los operadores no responden por mensajes demorados o no entregados.</p>
+<h2>Privacidad</h2><p>La información móvil no se comparte con terceros ni afiliados para marketing o promociones. Consulta la <a href="privacy-policy.html">Política de privacidad</a>.</p>
+<h2>Contacto</h2><p>Dudas: <a href="mailto:support@holetrainer.com">support@holetrainer.com</a> · +1 (415) 308-1343</p>
+</article>
+<a class="back" href="index.html" data-en="← Back to JayPlay" data-es="← Volver a JayPlay">← Back to JayPlay</a>
+</main>
+<footer>© 2026 JayPlay · HotMedia LLC · +1 (415) 308-1343 · support@holetrainer.com</footer>
+<script>
+function setL(l){document.documentElement.lang=l;
+document.querySelectorAll("[lang-block]").forEach(e=>e.hidden=e.getAttribute("lang-block")!==l);
+document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[l]);
+document.querySelectorAll(".lang button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.l===l));
+try{localStorage.setItem("jp-lang",l)}catch(e){}}
+document.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>setL(b.dataset.l));
+let s="en";try{s=localStorage.getItem("jp-lang")||((navigator.language||"").startsWith("es")?"es":"en")}catch(e){}
+setL(s);
+const here=location.pathname.split("/").pop()||"";
+document.querySelectorAll(".tabs a").forEach(a=>{if(a.dataset.p===here||(here===""&&false))a.setAttribute("aria-current","page")});
+document.querySelector('.tabs a[data-p="'+PAGE+'"]')?.setAttribute("aria-current","page");
+const PAGE="sms-terms.html";
+
+</script>
+</body>
+</html>
