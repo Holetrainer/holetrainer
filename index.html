@@ -1146,6 +1146,30 @@ html.mn-lock{overflow:hidden}
 }
 html.mn-lock .fab,html.mn-lock .bookbar{display:none!important}
 .mn-ic{color:var(--gold);font-size:0}
+
+/* =================== v13: booking UX =================== */
+form .actions{grid-template-columns:1fr!important;justify-items:center;gap:6px!important}
+form .actions .btn-wa{width:100%}
+.mail-link-btn{border:0;background:none;color:var(--muted);font:500 .84rem var(--body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px}
+.mail-link-btn:hover{color:var(--ink)}
+.done{display:grid;gap:14px;text-align:center;padding:10px 4px;animation:pop .45s ease both}
+.done[hidden]{display:none}
+.done-ic{width:64px;height:64px;margin:0 auto;border-radius:50%;display:grid;place-items:center;font-size:1.8rem;font-weight:700;color:#fff;background:var(--wa)}
+.done h3{font-size:2rem}
+.done-sub{color:var(--muted);font-size:.95rem;max-width:42ch;margin:0 auto}
+.done-card{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;text-align:left}
+.done-card div{background:var(--bg2);padding:12px 14px}
+.done-card small,.done-dep small{display:block;font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.done-card b{font-size:.92rem;font-weight:600}
+.done-dep{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;text-align:left;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));background:color-mix(in srgb,var(--gold) 8%,var(--bg2))}
+.done-dep b{font-family:var(--display);font-size:2.2rem;color:var(--gold);line-height:1}
+.done-dep code{display:block;margin-top:4px;font:600 .9rem var(--body);overflow-wrap:anywhere}
+.done-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.done-actions .btn{width:100%}
+.done-actions .btn-wa{grid-column:1/-1}
+.done-actions .mail-link-btn{grid-column:1/-1}
+@media (max-width:640px){.done-card{grid-template-columns:1fr}.done h3{font-size:1.7rem}}
+.done,.step,#pay,section{scroll-margin-top:84px}
 </style>
 </head>
 <body>
@@ -1389,10 +1413,28 @@ html.mn-lock .fab,html.mn-lock .bookbar{display:none!important}
               </div>
               <div class="actions">
                 <button class="btn btn-wa" type="submit" id="send-wa" data-i18n="f.wa">Send on WhatsApp</button>
-                <button class="btn btn-line" type="button" id="send-mail" data-i18n="f.mail">Send by email</button>
+                <button class="mail-link-btn" type="button" id="send-mail">or send by email</button>
               </div>
               <p class="msg" id="msg" hidden></p>
             </form>
+            <div class="done" id="done" hidden>
+              <div class="done-ic">✓</div>
+              <h3>Request ready</h3>
+              <p class="done-sub">WhatsApp opened with your booking. Hit <b>send</b> there, then pay the deposit to lock your spot.</p>
+              <div class="done-card">
+                <div><small>Session</small><b id="d-svc"></b></div>
+                <div><small>When</small><b id="d-when"></b></div>
+                <div><small>Where</small><b id="d-where"></b></div>
+                <div><small>Total</small><b id="d-total"></b></div>
+              </div>
+              <div class="done-dep"><div><small>Deposit to send now</small><b id="d-dep"></b></div><div><small>Payment note</small><code id="d-ref"></code></div></div>
+              <div class="done-actions">
+                <a class="btn btn-gold" href="#pay" id="d-pay">Pay deposit</a>
+                <button type="button" class="btn btn-line" id="d-ics">Add to calendar</button>
+                <button type="button" class="btn btn-wa" id="d-wa">Open WhatsApp again</button>
+                <button type="button" class="mail-link-btn" id="d-edit">Edit booking</button>
+              </div>
+            </div>
           </div>
         </div>
         <aside class="side">
@@ -1699,6 +1741,8 @@ document.querySelectorAll(".pick").forEach(a=>a.addEventListener("click",()=>{sh
 
 /* ---------- Booking form: price, deposit and city calculated automatically ---------- */
 const form=$("req-form");
+const DUR={deep90:90,full60:60,full120:120,group:60};
+const endLabel=(v,svc)=>{if(!v)return"";const [h,m]=v.split(":").map(Number);const t=h*60+m+(DUR[svc]||60);const hh=Math.floor(t/60)%24,mm=t%60;const ap=hh<12?"AM":"PM";return (hh%12||12)+(mm?":"+String(mm).padStart(2,"0"):"")+" "+ap;};
 const tLabel=v=>{if(!v)return"";let h=+v.split(":")[0];const ap=h<12?"AM":"PM";let x=h%12||12;return x+" "+ap;};
 const payRef=()=>{const n=(form.name.value.trim()||"Name"),d=form.date.value?fmt(form.date.value,{month:"short",day:"numeric"}):"date";return "JP · "+n+" · "+d+(form.time.value?" "+tLabel(form.time.value):"");};
 const isLate=time=>{if(!time)return false;const h=+time.split(":")[0];return h>=CONFIG.lateNightFrom||h<CONFIG.lateNightTo;};
@@ -1711,7 +1755,7 @@ function updateSummary(){
   if(!form) return;
   const c=current();
   $("s-svc").textContent=c.svcLabel+" · "+c.whereLabel;
-  $("s-when").textContent=c.date?(fmt(c.date,{weekday:"short",month:"short",day:"numeric"})+(c.time?" · "+tLabel(c.time):"")):"—";
+  $("s-when").textContent=c.date?(fmt(c.date,{weekday:"short",month:"short",day:"numeric"})+(c.time?" · "+tLabel(c.time)+" – "+endLabel(c.time,form.service.value):"")):"—";
   if(window.syncBooking) syncBooking();
   $("pay-amt").textContent="$"+c.dep; $("pay-why").textContent=c.late?"late night (10 pm – 7 am)":"regular hours";
   $("pay").classList.toggle("late",c.late); $("pay-ref").textContent=payRef();
@@ -1732,7 +1776,7 @@ function buildMessage(){
     form.phone.value.trim()?t("msg.phone")+": "+form.phone.value.trim():"",
     t("msg.session")+": "+c.svcLabel,
     t("msg.where")+": "+c.whereLabel,
-    t("msg.date")+": "+fmt(c.date,{weekday:"long",month:"long",day:"numeric"})+" · "+tLabel(c.time),
+    t("msg.date")+": "+fmt(c.date,{weekday:"long",month:"long",day:"numeric"})+" · "+tLabel(c.time)+" – "+endLabel(c.time,form.service.value),
     form.city.value.trim()?t("msg.city")+": "+form.city.value.trim():"",
     t("msg.total")+": "+(c.price?"$"+c.price:t("m.ask"))+" · "+t("msg.dep")+": $"+c.dep,
     "Deposit note: "+payRef(),
@@ -1752,9 +1796,7 @@ function copyToEmail(){
 }
 form.addEventListener("submit",e=>{
   e.preventDefault(); if(!valid()) return;
-  const c=current(),m=$("msg");m.hidden=false;m.className="msg ok";
-  m.innerHTML="✅ <b>WhatsApp is opening with your request.</b> Hit send there. To lock your spot, send the <b>$"+c.dep+" deposit</b> with the note <b>"+payRef()+"</b> 👇";
-  setTimeout(()=>$("pay").scrollIntoView({behavior:"smooth",block:"center"}),900);
+  $("msg").hidden=true; showDone();
   copyToEmail();
   const a=document.createElement("a"); a.href=waURL(buildMessage()); a.target="_blank"; a.rel="noopener"; document.body.appendChild(a); a.click(); a.remove();
 });
@@ -1938,6 +1980,31 @@ $("f-name").addEventListener("input",()=>{$("pay-ref").textContent=payRef();});
   if("IntersectionObserver" in window){new IntersectionObserver(es=>{const on=es[0].isIntersecting;bar.classList.toggle("on",on);bar.setAttribute("aria-hidden",!on);if(fab)fab.classList.toggle("hide",on);},{threshold:.05}).observe(form);}
   $("bb-send").addEventListener("click",()=>form.requestSubmit());
   form.name.addEventListener("input",()=>syncBooking());
+})();
+
+/* ---------- Booking UX: auto-advance, remember me, confirmation ---------- */
+(function(){
+  const go=id=>{const el=$(id);const r=el.getBoundingClientRect();if(r.top>innerHeight*.55||r.top<70)el.scrollIntoView({behavior:"smooth",block:"start"});};
+  $("days").addEventListener("click",e=>{if(e.target.closest(".day")&&!form.time.value)setTimeout(()=>go("st-3"),250);});
+  document.querySelectorAll(".times").forEach(w=>w.addEventListener("click",e=>{if(e.target.closest(".slot:not(:disabled)")&&!form.name.value.trim())setTimeout(()=>{go("st-4");setTimeout(()=>form.name.focus({preventScroll:true}),450);},250);}));
+  try{const m=JSON.parse(localStorage.getItem("jp-me")||"{}");if(m.n)form.name.value=m.n;if(m.p)form.phone.value=m.p;}catch(e){}
+  const save=()=>{try{localStorage.setItem("jp-me",JSON.stringify({n:form.name.value.trim(),p:form.phone.value.trim()}))}catch(e){}};
+  form.name.addEventListener("change",save);form.phone.addEventListener("change",save);
+  window.showDone=function(){save();const c=current();
+    $("d-svc").textContent=c.svcLabel;$("d-when").textContent=fmt(c.date,{weekday:"short",month:"short",day:"numeric"})+" · "+tLabel(c.time)+" – "+endLabel(c.time,form.service.value);
+    $("d-where").textContent=c.whereLabel+(form.city.value?" · "+form.city.value:"");$("d-total").textContent=c.price?"$"+c.price:"Ask";
+    $("d-dep").textContent="$"+c.dep;$("d-ref").textContent=payRef();
+    form.hidden=true;$("done").hidden=false;$("done").scrollIntoView({behavior:"smooth",block:"start"});};
+  $("d-edit").addEventListener("click",()=>{$("done").hidden=true;form.hidden=false;$("st-1").scrollIntoView({behavior:"smooth",block:"start"});});
+  $("d-wa").addEventListener("click",()=>{window.open(waURL(buildMessage()),"_blank","noopener");});
+  $("d-pay").addEventListener("click",e=>{e.preventDefault();$("pay").scrollIntoView({behavior:"smooth",block:"center"});});
+  $("d-ics").addEventListener("click",()=>{const c=current();const [h,m]=c.time.split(":").map(Number);
+    const st=new Date(c.date+"T00:00:00");st.setHours(h,m,0,0);if(h<7&&h>=0)st.setDate(st.getDate()+0);
+    const en=new Date(st.getTime()+(DUR[form.service.value]||60)*6e4);
+    const f=d=>d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+"T"+String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0")+"00";
+    const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//JayPlay//Booking//EN","BEGIN:VEVENT","UID:"+Date.now()+"@jayplay","DTSTAMP:"+f(new Date()),"DTSTART:"+f(st),"DTEND:"+f(en),
+      "SUMMARY:JayPlay · "+c.svcLabel,"LOCATION:"+(form.city.value||"")+" ("+c.whereLabel+")","DESCRIPTION:Deposit $"+c.dep+" · note: "+payRef()+" · WhatsApp "+CONFIG.phoneShow,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([ics],{type:"text/calendar"}));a.download="jayplay-booking.ics";document.body.appendChild(a);a.click();a.remove();});
 })();
 
 let saved="en";
